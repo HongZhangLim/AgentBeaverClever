@@ -1,4 +1,6 @@
 import crypto from "crypto";
+import fs from "fs";
+import path from "path";
 import QRCode from "qrcode";
 import WhatsAppWeb from "whatsapp-web.js";
 
@@ -13,6 +15,61 @@ let isConnected = false;
 let lastStartupError = null;
 let clientInstance = null;
 let serviceInstance = null;
+
+function getPuppeteerCacheRoots() {
+  const roots = [
+    process.env.PUPPETEER_CACHE_DIR,
+    path.join(process.cwd(), ".cache", "puppeteer"),
+    process.env.HOME ? path.join(process.env.HOME, ".cache", "puppeteer") : "",
+    "/opt/render/.cache/puppeteer",
+  ];
+
+  return [...new Set(roots.filter(Boolean))];
+}
+
+function resolvePuppeteerExecutablePath() {
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    return process.env.PUPPETEER_EXECUTABLE_PATH;
+  }
+
+  if (process.env.CHROME_BIN) {
+    return process.env.CHROME_BIN;
+  }
+
+  const relativeCandidates = [
+    ["chrome-linux64", "chrome"],
+    ["chrome-linux", "chrome"],
+    ["chrome-win64", "chrome.exe"],
+    ["chrome-win", "chrome.exe"],
+    ["chrome-mac", "Chromium.app", "Contents", "MacOS", "Chromium"],
+    ["chrome-mac", "Google Chrome for Testing.app", "Contents", "MacOS", "Google Chrome for Testing"],
+  ];
+
+  for (const cacheRoot of getPuppeteerCacheRoots()) {
+    const chromeRoot = path.join(cacheRoot, "chrome");
+    if (!fs.existsSync(chromeRoot)) {
+      continue;
+    }
+
+    const platformBuilds = fs
+      .readdirSync(chromeRoot, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort()
+      .reverse();
+
+    for (const build of platformBuilds) {
+      for (const relativePath of relativeCandidates) {
+        const candidate = path.join(chromeRoot, build, ...relativePath);
+        if (fs.existsSync(candidate)) {
+          return candidate;
+        }
+      }
+    }
+  }
+
+  return undefined;
+}
 
 function normalizeText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -149,6 +206,13 @@ export function initializeWhatsAppService({
   const activeSummaries = new Set();
   const speakerNameCache = new Map();
   lastStartupError = null;
+  const resolvedExecutablePath = resolvePuppeteerExecutablePath();
+
+  if (!resolvedExecutablePath) {
+    console.warn(
+      "[WhatsApp] Chrome executable not found. If running on Render, add postinstall: npx puppeteer browsers install chrome --path ./.cache/puppeteer"
+    );
+  }
 
   const puppeteerArgs = [
     "--no-sandbox",
@@ -163,10 +227,7 @@ export function initializeWhatsAppService({
     }),
     puppeteer: {
       headless: "new",
-      executablePath:
-        process.env.PUPPETEER_EXECUTABLE_PATH ||
-        process.env.CHROME_BIN ||
-        undefined,
+      executablePath: resolvedExecutablePath,
       args: puppeteerArgs,
     },
   });

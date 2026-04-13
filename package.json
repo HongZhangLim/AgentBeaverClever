@@ -5,6 +5,7 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
+    "postinstall": "npx puppeteer browsers install chrome --path ./.cache/puppeteer",
     "start": "node server.js",
     "dev": "node server.js",
     "restart:app": "powershell -ExecutionPolicy Bypass -File ./scripts/restart-app.ps1"
