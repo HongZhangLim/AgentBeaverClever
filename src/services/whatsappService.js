@@ -222,6 +222,10 @@ export function initializeWhatsAppService({
     authStrategy: new LocalAuth({ clientId: process.env.WHATSAPP_CLIENT_ID }),
     puppeteer: {
       headless: true,
+      executablePath: path.join(
+        process.cwd(),
+        ".cache/puppeteer/chrome/linux-146.0.7680.153/chrome-linux64/chrome"
+      ),
       args: puppeteerArgs,
     },
   });
