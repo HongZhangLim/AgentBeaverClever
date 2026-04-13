@@ -3,6 +3,9 @@ let currentAnalysisId = null;
 const authStatus = document.getElementById("authStatus");
 const connectBtn = document.getElementById("connectBtn");
 const disconnectBtn = document.getElementById("disconnectBtn");
+const whatsappStatus = document.getElementById("whatsappStatus");
+const whatsappQrImage = document.getElementById("whatsapp-qr-image");
+const whatsappHint = document.getElementById("whatsappHint");
 
 const uploadForm = document.getElementById("uploadForm");
 const fileInput = document.getElementById("fileInput");
@@ -199,6 +202,42 @@ async function refreshAuthStatus() {
     authStatus.style.background = data.connected ? "#dcfce7" : "#fee2e2";
   } catch (error) {
     authStatus.textContent = "Auth check failed";
+  }
+}
+
+async function refreshWhatsAppStatus() {
+  try {
+    const status = await fetchJson("/api/whatsapp/status");
+
+    if (status.isConnected) {
+      whatsappStatus.textContent = "WhatsApp Connected";
+      whatsappStatus.style.background = "#dcfce7";
+      whatsappQrImage.classList.add("hidden");
+      whatsappQrImage.removeAttribute("src");
+      whatsappHint.textContent = "Connected. Send /summarize in WhatsApp to trigger analysis.";
+      return;
+    }
+
+    if (status.qrCodeUrl) {
+      whatsappStatus.textContent = "Scan QR Code";
+      whatsappStatus.style.background = "#fef3c7";
+      whatsappQrImage.src = status.qrCodeUrl;
+      whatsappQrImage.classList.remove("hidden");
+      whatsappHint.textContent = "Open WhatsApp > Linked Devices > Link a Device, then scan this QR.";
+      return;
+    }
+
+    whatsappStatus.textContent = "Waiting for QR...";
+    whatsappStatus.style.background = "#e5e7eb";
+    whatsappQrImage.classList.add("hidden");
+    whatsappQrImage.removeAttribute("src");
+    whatsappHint.textContent = "WhatsApp is starting. QR code will appear here soon.";
+  } catch (error) {
+    whatsappStatus.textContent = "Status check failed";
+    whatsappStatus.style.background = "#fee2e2";
+    whatsappQrImage.classList.add("hidden");
+    whatsappQrImage.removeAttribute("src");
+    whatsappHint.textContent = "Could not load WhatsApp status from server.";
   }
 }
 
@@ -481,4 +520,6 @@ executeBtn.addEventListener("click", async () => {
 });
 
 refreshAuthStatus();
+refreshWhatsAppStatus();
+setInterval(refreshWhatsAppStatus, 3000);
 loadAnalysisFromQueryParam();

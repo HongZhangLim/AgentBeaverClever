@@ -23,6 +23,19 @@
       </section>
 
       <section class="panel">
+        <h2>WhatsApp Connection</h2>
+        <div class="whatsapp-connection">
+          <span id="whatsappStatus" class="badge">Checking...</span>
+          <img
+            id="whatsapp-qr-image"
+            class="whatsapp-qr hidden"
+            alt="WhatsApp QR code"
+          />
+          <p id="whatsappHint" class="muted">Waiting for QR code...</p>
+        </div>
+      </section>
+
+      <section class="panel">
         <h2>2. Upload and Analyze</h2>
         <form id="uploadForm">
           <input id="fileInput" name="file" type="file" accept=".txt,.md,.json,.zip" required />

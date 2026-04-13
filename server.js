@@ -19,6 +19,10 @@ import {
 } from "./src/services/googleActionsService.js";
 import { saveAnalysis, getAnalysis } from "./src/store/analysisStore.js";
 import { initializeTelegramService } from "./src/services/telegramService.js";
+import {
+  initializeWhatsAppService,
+  getWhatsAppStatus,
+} from "./src/services/whatsappService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -156,6 +160,10 @@ app.get("/api/analysis/:analysisId", (req, res) => {
   });
 });
 
+app.get("/api/whatsapp/status", (req, res) => {
+  res.json(getWhatsAppStatus());
+});
+
 app.post("/api/actions/execute", async (req, res, next) => {
   try {
     const tokens = req.session.googleTokens;
@@ -256,7 +264,17 @@ const telegramService = initializeTelegramService({
   webUiBaseUrl: process.env.APP_BASE_URL || `http://localhost:${port}`,
 });
 
+const whatsappService = initializeWhatsAppService({
+  extractProjectIntel,
+  saveAnalysis,
+  webUiBaseUrl: process.env.APP_BASE_URL || `http://localhost:${port}`,
+});
+
 async function shutdown() {
+  if (whatsappService?.stop) {
+    await whatsappService.stop();
+  }
+
   if (telegramService?.stop) {
     await telegramService.stop();
   }

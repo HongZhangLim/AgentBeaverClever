@@ -105,6 +105,22 @@ button.secondary:hover {
   color: var(--muted);
 }
 
+.whatsapp-connection {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+
+.whatsapp-qr {
+  width: min(260px, 100%);
+  aspect-ratio: 1;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 8px;
+  object-fit: contain;
+}
+
 .hidden {
   display: none;
 }
