@@ -54,6 +54,22 @@ Supports selecting an exported chat folder directly in the browser:
 - The backend auto-picks the best candidate file, preferring `result.json` and WhatsApp chat text exports
 - Media files are ignored for analysis
 
+## Sample Data
+
+This repo includes ready-to-use sample folders for quick verification:
+- `sample-whatsapp-productivity/`
+- `sample-telegram-productivity/`
+
+Use the app's **Analyze Folder** button and select either folder.
+
+## Validation Command
+
+To validate parser behavior from terminal:
+
+```bash
+node --input-type=module -e "import fs from 'fs'; import path from 'path'; import { parseUploadedFolder } from './src/services/parserService.js'; const supported = new Set(['.txt','.md','.json']); function buildFolderPayload(rootDir){ const files=[]; const rootName=path.basename(rootDir); function walk(dir){ for (const entry of fs.readdirSync(dir, { withFileTypes: true })) { const full = path.join(dir, entry.name); if (entry.isDirectory()) { walk(full); continue; } const ext = path.extname(entry.name).toLowerCase(); if (!supported.has(ext)) { continue; } const relative = path.relative(rootDir, full).replace(/\\/g, '/'); files.push({ originalname: rootName + '/' + relative, buffer: fs.readFileSync(full) }); } } walk(rootDir); return files; } const folders=['./sample-whatsapp-productivity','./sample-telegram-productivity']; for (const folder of folders){ const payload=buildFolderPayload(folder); const result=parseUploadedFolder(payload); console.log(folder, JSON.stringify({ inputType: result.inputType, parsedSourceFile: result.parsedSourceFile, messageCount: result.messageCount })); }"
+```
+
 ## Demo Flow
 
 1. Connect Google account.

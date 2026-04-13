@@ -154,7 +154,29 @@ app.post("/api/actions/execute", async (req, res, next) => {
       return res.status(404).json({ error: "Analysis not found" });
     }
 
-    const approvedTasks = Array.isArray(tasks) && tasks.length ? tasks : analysis.tasks;
+    const approvedTasks = Array.isArray(tasks) && tasks.length
+      ? tasks.map((editedTask, editedIndex) => {
+          const parsedSourceIndex = Number.parseInt(String(editedTask.sourceIndex), 10);
+          const hasSourceIndex = Number.isInteger(parsedSourceIndex) && parsedSourceIndex >= 0;
+
+          const baseTask =
+            (analysis.tasks || []).find(
+              (sourceTask) => sourceTask.id && editedTask.id && sourceTask.id === editedTask.id
+            ) ||
+            (hasSourceIndex ? analysis.tasks?.[parsedSourceIndex] : null) ||
+            {};
+
+          const mergedTask = {
+            ...baseTask,
+            ...editedTask,
+            id: editedTask.id || baseTask.id || `generated-${editedIndex}`,
+          };
+
+          delete mergedTask.sourceIndex;
+
+          return mergedTask;
+        })
+      : analysis.tasks;
     if (!approvedTasks.length) {
       return res.status(400).json({ error: "No approved tasks selected" });
     }
