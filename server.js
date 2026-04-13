@@ -18,6 +18,7 @@ import {
   createCalendarEvents,
 } from "./src/services/googleActionsService.js";
 import { saveAnalysis, getAnalysis } from "./src/store/analysisStore.js";
+import { initializeTelegramService } from "./src/services/telegramService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -141,6 +142,20 @@ app.post("/api/upload-analyze-folder", upload.array("files", 400), async (req, r
   }
 });
 
+app.get("/api/analysis/:analysisId", (req, res) => {
+  const analysisId = req.params.analysisId;
+  const analysis = getAnalysis(analysisId);
+
+  if (!analysis) {
+    return res.status(404).json({ error: "Analysis not found" });
+  }
+
+  res.json({
+    analysisId,
+    ...analysis,
+  });
+});
+
 app.post("/api/actions/execute", async (req, res, next) => {
   try {
     const tokens = req.session.googleTokens;
@@ -233,6 +248,26 @@ app.use((err, req, res, next) => {
   const message = err.message || "Unknown error";
   const status = message.toLowerCase().includes("oauth") ? 400 : 500;
   res.status(status).json({ error: message });
+});
+
+const telegramService = initializeTelegramService({
+  extractProjectIntel,
+  saveAnalysis,
+  webUiBaseUrl: process.env.APP_BASE_URL || `http://localhost:${port}`,
+});
+
+async function shutdown() {
+  if (telegramService?.stop) {
+    await telegramService.stop();
+  }
+}
+
+process.once("SIGINT", () => {
+  shutdown().finally(() => process.exit(0));
+});
+
+process.once("SIGTERM", () => {
+  shutdown().finally(() => process.exit(0));
 });
 
 app.listen(port, () => {

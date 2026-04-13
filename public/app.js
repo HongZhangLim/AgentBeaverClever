@@ -285,6 +285,22 @@ async function submitAnalysis(url, formData, progressMessage) {
   renderAnalysisResult(data);
 }
 
+async function loadAnalysisFromQueryParam() {
+  const params = new URLSearchParams(window.location.search);
+  const analysisId = params.get("analysisId");
+  if (!analysisId) {
+    return;
+  }
+
+  try {
+    setLoadingResult("Loading shared analysis...");
+    const data = await fetchJson(`/api/analysis/${encodeURIComponent(analysisId)}`);
+    renderAnalysisResult(data);
+  } catch (error) {
+    setResult(`Failed to load shared analysis: ${error.message}`, true);
+  }
+}
+
 function renderTaskTable(tasks) {
   const html = `
     <table>
@@ -293,7 +309,7 @@ function renderTaskTable(tasks) {
           <th>Approve</th>
           <th>Item Type</th>
           <th>Task</th>
-          <th>Owner</th>
+          <th>PIC</th>
           <th>Due Date</th>
           <th>Due Time</th>
           <th>Location</th>
@@ -465,3 +481,4 @@ executeBtn.addEventListener("click", async () => {
 });
 
 refreshAuthStatus();
+loadAnalysisFromQueryParam();
