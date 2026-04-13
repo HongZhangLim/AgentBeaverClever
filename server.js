@@ -31,16 +31,19 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
 const port = Number(process.env.PORT || 3000);
+const isProduction = process.env.NODE_ENV === "production";
 
 app.use(express.json({ limit: "2mb" }));
+app.set("trust proxy", 1);
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "dev-session-secret",
+    proxy: true,
     resave: false,
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: false,
+      secure: isProduction,
       sameSite: "lax",
     },
   })

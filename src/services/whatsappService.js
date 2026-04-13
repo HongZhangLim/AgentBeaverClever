@@ -10,6 +10,7 @@ const messageStore = new Map();
 
 let currentQR = null;
 let isConnected = false;
+let lastStartupError = null;
 let clientInstance = null;
 let serviceInstance = null;
 
@@ -128,6 +129,7 @@ export function getWhatsAppStatus() {
   return {
     isConnected,
     qrCodeUrl: currentQR,
+    startupError: lastStartupError,
   };
 }
 
@@ -146,11 +148,26 @@ export function initializeWhatsAppService({
 
   const activeSummaries = new Set();
   const speakerNameCache = new Map();
+  lastStartupError = null;
+
+  const puppeteerArgs = [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-dev-shm-usage",
+  ];
 
   const client = new Client({
-    authStrategy: new LocalAuth({ clientId: process.env.WHATSAPP_CLIENT_ID || "meeting-intel-agent" }),
+    authStrategy: new LocalAuth({
+      clientId: process.env.WHATSAPP_CLIENT_ID || "meeting-intel-agent",
+      dataPath: process.env.WHATSAPP_AUTH_DIR || ".wwebjs_auth",
+    }),
     puppeteer: {
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      headless: "new",
+      executablePath:
+        process.env.PUPPETEER_EXECUTABLE_PATH ||
+        process.env.CHROME_BIN ||
+        undefined,
+      args: puppeteerArgs,
     },
   });
 
@@ -158,9 +175,11 @@ export function initializeWhatsAppService({
     try {
       currentQR = await QRCode.toDataURL(qr);
       isConnected = false;
+      lastStartupError = null;
       console.log("[WhatsApp] QR code generated. Scan it from the web UI.");
     } catch (error) {
       currentQR = null;
+      lastStartupError = `QR generation failed: ${error?.message || error}`;
       console.error(`[WhatsApp] Failed to generate QR data URL: ${error?.message || error}`);
     }
   });
@@ -168,16 +187,19 @@ export function initializeWhatsAppService({
   client.on("ready", () => {
     isConnected = true;
     currentQR = null;
+    lastStartupError = null;
     console.log("[WhatsApp] Client connected.");
   });
 
   client.on("disconnected", (reason) => {
     isConnected = false;
+    lastStartupError = `Disconnected: ${reason || "unknown reason"}`;
     console.warn(`[WhatsApp] Client disconnected: ${reason || "unknown reason"}`);
   });
 
   client.on("auth_failure", (message) => {
     isConnected = false;
+    lastStartupError = `Authentication failure: ${message || "unknown reason"}`;
     console.error(`[WhatsApp] Authentication failure: ${message || "unknown reason"}`);
   });
 
@@ -255,6 +277,7 @@ export function initializeWhatsAppService({
   });
 
   client.initialize().catch((error) => {
+    lastStartupError = `Initialization failed: ${error?.message || error}`;
     console.error(`[WhatsApp] Failed to initialize client: ${error?.message || error}`);
   });
 
@@ -269,6 +292,7 @@ export function initializeWhatsAppService({
       serviceInstance = null;
       currentQR = null;
       isConnected = false;
+      lastStartupError = null;
       activeSummaries.clear();
       speakerNameCache.clear();
       messageStore.clear();

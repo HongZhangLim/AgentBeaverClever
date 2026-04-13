@@ -209,6 +209,15 @@ async function refreshWhatsAppStatus() {
   try {
     const status = await fetchJson("/api/whatsapp/status");
 
+    if (status.startupError) {
+      whatsappStatus.textContent = "WhatsApp Start Failed";
+      whatsappStatus.style.background = "#fee2e2";
+      whatsappQrImage.classList.add("hidden");
+      whatsappQrImage.removeAttribute("src");
+      whatsappHint.textContent = `Server error: ${status.startupError}`;
+      return;
+    }
+
     if (status.isConnected) {
       whatsappStatus.textContent = "WhatsApp Connected";
       whatsappStatus.style.background = "#dcfce7";
