@@ -206,28 +206,22 @@ export function initializeWhatsAppService({
   const activeSummaries = new Set();
   const speakerNameCache = new Map();
   lastStartupError = null;
-  const resolvedExecutablePath = resolvePuppeteerExecutablePath();
-
-  if (!resolvedExecutablePath) {
-    console.warn(
-      "[WhatsApp] Chrome executable not found. If running on Render, add postinstall: npx puppeteer browsers install chrome --path ./.cache/puppeteer"
-    );
-  }
 
   const puppeteerArgs = [
     "--no-sandbox",
     "--disable-setuid-sandbox",
     "--disable-dev-shm-usage",
+    "--disable-accelerated-2d-canvas",
+    "--no-first-run",
+    "--no-zygote",
+    "--single-process",
+    "--disable-gpu",
   ];
 
   const client = new Client({
-    authStrategy: new LocalAuth({
-      clientId: process.env.WHATSAPP_CLIENT_ID || "meeting-intel-agent",
-      dataPath: process.env.WHATSAPP_AUTH_DIR || ".wwebjs_auth",
-    }),
+    authStrategy: new LocalAuth({ clientId: process.env.WHATSAPP_CLIENT_ID }),
     puppeteer: {
-      headless: "new",
-      executablePath: resolvedExecutablePath,
+      headless: true,
       args: puppeteerArgs,
     },
   });
