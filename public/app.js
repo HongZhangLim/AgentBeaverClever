@@ -6,6 +6,8 @@ const disconnectBtn = document.getElementById("disconnectBtn");
 
 const uploadForm = document.getElementById("uploadForm");
 const fileInput = document.getElementById("fileInput");
+const folderUploadForm = document.getElementById("folderUploadForm");
+const folderInput = document.getElementById("folderInput");
 const uploadMeta = document.getElementById("uploadMeta");
 const taskTableWrap = document.getElementById("taskTableWrap");
 
@@ -22,6 +24,8 @@ const toCalendar = document.getElementById("toCalendar");
 const spreadsheetId = document.getElementById("spreadsheetId");
 const sheetName = document.getElementById("sheetName");
 const calendarId = document.getElementById("calendarId");
+
+const SUPPORTED_FOLDER_EXTENSIONS = ["txt", "md", "json"];
 
 function setResult(payload, isError = false) {
   resultBox.textContent = typeof payload === "string" ? payload : JSON.stringify(payload, null, 2);
@@ -82,6 +86,47 @@ function makeTaskRow(task, index) {
       <td><small>${task.id || ""}</small></td>
     </tr>
   `;
+}
+
+function getExtension(fileName) {
+  const index = fileName.lastIndexOf(".");
+  if (index < 0) {
+    return "";
+  }
+  return fileName.slice(index + 1).toLowerCase();
+}
+
+function isSupportedFolderFile(file) {
+  const extension = getExtension(file.name || "");
+  return SUPPORTED_FOLDER_EXTENSIONS.includes(extension);
+}
+
+function renderAnalysisResult(data) {
+  currentAnalysisId = data.analysisId;
+
+  const sourceInfo =
+    data.parsedSourceFile && data.parsedSourceFile !== data.fileName
+      ? ` (source: ${data.parsedSourceFile})`
+      : "";
+
+  uploadMeta.textContent = `Analyzed ${data.fileName}${sourceInfo} | ${data.inputType} | ${data.messageCount} messages | ${data.tasks.length} tasks`;
+  renderInsights(decisionsList, data.decisions || []);
+  renderInsights(blockersList, data.blockers || []);
+  insights.classList.remove("hidden");
+
+  renderTaskTable(data.tasks || []);
+  setResult({ message: "Analysis complete", analysisId: data.analysisId, taskCount: data.tasks.length });
+}
+
+async function submitAnalysis(url, formData, progressMessage) {
+  setResult(progressMessage);
+
+  const data = await fetchJson(url, {
+    method: "POST",
+    body: formData,
+  });
+
+  renderAnalysisResult(data);
 }
 
 function renderTaskTable(tasks) {
@@ -152,24 +197,40 @@ uploadForm.addEventListener("submit", async (event) => {
 
   const formData = new FormData();
   formData.append("file", fileInput.files[0]);
+  try {
+    await submitAnalysis("/api/upload-analyze", formData, "Analyzing file...");
+  } catch (error) {
+    setResult(error.message, true);
+  }
+});
 
-  setResult("Analyzing file...");
+folderUploadForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const allFiles = Array.from(folderInput.files || []);
+  if (!allFiles.length) {
+    setResult("Please choose a folder first.", true);
+    return;
+  }
+
+  const supportedFiles = allFiles.filter(isSupportedFolderFile);
+  if (!supportedFiles.length) {
+    setResult("No supported chat files found in selected folder. Expected .txt, .md, or .json.", true);
+    return;
+  }
+
+  const formData = new FormData();
+  supportedFiles.forEach((file) => {
+    const fileName = file.webkitRelativePath || file.name;
+    formData.append("files", file, fileName);
+  });
 
   try {
-    const data = await fetchJson("/api/upload-analyze", {
-      method: "POST",
-      body: formData,
-    });
-
-    currentAnalysisId = data.analysisId;
-
-    uploadMeta.textContent = `Analyzed ${data.fileName} | ${data.inputType} | ${data.messageCount} messages | ${data.tasks.length} tasks`;
-    renderInsights(decisionsList, data.decisions || []);
-    renderInsights(blockersList, data.blockers || []);
-    insights.classList.remove("hidden");
-
-    renderTaskTable(data.tasks || []);
-    setResult({ message: "Analysis complete", analysisId: data.analysisId, taskCount: data.tasks.length });
+    await submitAnalysis(
+      "/api/upload-analyze-folder",
+      formData,
+      `Analyzing folder with ${supportedFiles.length} supported files...`
+    );
   } catch (error) {
     setResult(error.message, true);
   }

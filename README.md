@@ -4,7 +4,8 @@ Manual upload app that converts meeting transcript or chat exports into structur
 
 ## Features
 
-- Upload transcript TXT/MD or chat TXT/JSON files
+- Upload transcript TXT/MD, chat TXT/JSON, or chat export ZIP files
+- Upload exported chat folders directly from the browser
 - Gemini extraction for tasks, decisions, and blockers
 - Human approval before external writes
 - Google Sheets task sync with duplicate protection
@@ -41,10 +42,22 @@ Free-form text is accepted. Basic speaker extraction works on common patterns:
 ### Chat JSON
 Supports Telegram-like exports with `messages` array and generic arrays of objects with message text fields.
 
+### ZIP Chat Export
+Supports archive uploads and auto-detects the best chat source file inside the ZIP:
+- WhatsApp export ZIP with `WhatsApp Chat with ....txt`
+- Telegram export ZIP with `result.json`
+- Generic ZIP containing `.txt`, `.md`, or `.json` chat files
+
+### Folder Upload
+Supports selecting an exported chat folder directly in the browser:
+- The frontend only sends `.txt`, `.md`, and `.json` files from that folder
+- The backend auto-picks the best candidate file, preferring `result.json` and WhatsApp chat text exports
+- Media files are ignored for analysis
+
 ## Demo Flow
 
 1. Connect Google account.
-2. Upload transcript/chat file.
+2. Upload transcript/chat file (TXT, JSON, ZIP) or upload a chat export folder.
 3. Review extracted tasks.
 4. Select tasks and execute to Sheets and/or Calendar.
 5. Open links from execution results.

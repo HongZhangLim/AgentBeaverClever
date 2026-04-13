@@ -5,7 +5,7 @@ import session from "express-session";
 import path from "path";
 import { fileURLToPath } from "url";
 
-import { parseUploadedFile } from "./src/services/parserService.js";
+import { parseUploadedFile, parseUploadedFolder } from "./src/services/parserService.js";
 import { extractProjectIntel } from "./src/services/geminiService.js";
 import {
   buildOAuthClient,
@@ -90,36 +90,52 @@ app.post("/auth/google/disconnect", async (req, res) => {
   res.json({ ok: true });
 });
 
+async function analyzeParsedInput(parsed) {
+  const extracted = await extractProjectIntel({
+    canonicalText: parsed.canonicalText,
+    ingestionId: parsed.ingestionId,
+  });
+
+  const analysisPayload = {
+    ingestionId: parsed.ingestionId,
+    fileName: parsed.fileName,
+    parsedSourceFile: parsed.parsedSourceFile,
+    inputType: parsed.inputType,
+    messageCount: parsed.messageCount,
+    tasks: extracted.tasks,
+    decisions: extracted.decisions,
+    blockers: extracted.blockers,
+  };
+
+  const analysisId = saveAnalysis(analysisPayload);
+
+  return {
+    analysisId,
+    fileName: parsed.fileName,
+    parsedSourceFile: parsed.parsedSourceFile,
+    inputType: parsed.inputType,
+    messageCount: parsed.messageCount,
+    tasks: extracted.tasks,
+    decisions: extracted.decisions,
+    blockers: extracted.blockers,
+  };
+}
+
 app.post("/api/upload-analyze", upload.single("file"), async (req, res, next) => {
   try {
     const parsed = parseUploadedFile(req.file);
+    const response = await analyzeParsedInput(parsed);
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+});
 
-    const extracted = await extractProjectIntel({
-      canonicalText: parsed.canonicalText,
-      ingestionId: parsed.ingestionId,
-    });
-
-    const analysisPayload = {
-      ingestionId: parsed.ingestionId,
-      fileName: parsed.fileName,
-      inputType: parsed.inputType,
-      messageCount: parsed.messageCount,
-      tasks: extracted.tasks,
-      decisions: extracted.decisions,
-      blockers: extracted.blockers,
-    };
-
-    const analysisId = saveAnalysis(analysisPayload);
-
-    res.json({
-      analysisId,
-      fileName: parsed.fileName,
-      inputType: parsed.inputType,
-      messageCount: parsed.messageCount,
-      tasks: extracted.tasks,
-      decisions: extracted.decisions,
-      blockers: extracted.blockers,
-    });
+app.post("/api/upload-analyze-folder", upload.array("files", 400), async (req, res, next) => {
+  try {
+    const parsed = parseUploadedFolder(req.files || []);
+    const response = await analyzeParsedInput(parsed);
+    res.json(response);
   } catch (error) {
     next(error);
   }

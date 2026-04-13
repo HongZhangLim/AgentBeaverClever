@@ -25,9 +25,14 @@
       <section class="panel">
         <h2>2. Upload and Analyze</h2>
         <form id="uploadForm">
-          <input id="fileInput" name="file" type="file" accept=".txt,.md,.json" required />
+          <input id="fileInput" name="file" type="file" accept=".txt,.md,.json,.zip" required />
           <button type="submit">Analyze File</button>
         </form>
+        <form id="folderUploadForm">
+          <input id="folderInput" name="folder" type="file" webkitdirectory directory multiple />
+          <button type="submit">Analyze Folder</button>
+        </form>
+        <p class="muted">Folder upload scans for supported chat files only (.txt, .md, .json).</p>
         <p id="uploadMeta" class="muted"></p>
         <div id="insights" class="insights hidden">
           <div>

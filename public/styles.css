@@ -59,6 +59,18 @@ h2 {
   flex-wrap: wrap;
 }
 
+form {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+input[type="file"] {
+  max-width: 100%;
+}
+
 button {
   border: none;
   background: var(--accent);
