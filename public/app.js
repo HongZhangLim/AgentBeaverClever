@@ -13,7 +13,6 @@ const uploadForm = document.getElementById("uploadForm");
 const fileInput = document.getElementById("fileInput");
 const folderUploadForm = document.getElementById("folderUploadForm");
 const folderInput = document.getElementById("folderInput");
-const uploadMeta = document.getElementById("uploadMeta");
 const taskTableWrap = document.getElementById("taskTableWrap");
 
 const actionOptions = document.getElementById("actionOptions");
@@ -326,13 +325,6 @@ function renderAnalysisResult(data) {
 
   const eventCount = (data.tasks || []).filter((task) => normalizeItemType(task) === "event").length;
   const taskCount = (data.tasks || []).length - eventCount;
-
-  const sourceInfo =
-    data.parsedSourceFile && data.parsedSourceFile !== data.fileName
-      ? ` (source: ${data.parsedSourceFile})`
-      : "";
-
-  uploadMeta.textContent = `Analyzed ${data.fileName}${sourceInfo} | ${data.inputType} | ${data.messageCount} messages | ${taskCount} tasks | ${eventCount} events`;
 
   renderTaskTable(data.tasks || []);
   setSuccessResult(`Analysis complete. ${data.tasks.length} item(s) are ready for review.`);

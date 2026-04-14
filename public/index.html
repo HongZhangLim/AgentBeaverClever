@@ -9,7 +9,13 @@
   <body>
     <main class="container">
       <header class="hero">
-        <h1>Meeting Intelligence Agent</h1>
+        <img
+          src="/logo.png"
+          alt="Agent Beaver Clever logo"
+          class="app-logo"
+          onerror="this.style.display='none'"
+        />
+        <h1>Agent Beaver Clever🦫🪵🦎</h1>
         <p>Upload transcript/chat, extract actions with Gemini, and sync approved tasks to Google Sheets and Calendar.</p>
         <p id="sourceSubtitle" class="hero-source">Source: Not loaded yet</p>
         <div class="hero-actions">
@@ -49,8 +55,7 @@
           <input id="folderInput" name="folder" type="file" webkitdirectory directory multiple />
           <button type="submit">Analyze Folder</button>
         </form>
-        <p class="muted">Folder upload scans for supported chat files only (.txt, .md, .json).</p>
-        <p id="uploadMeta" class="muted"></p>
+        <p id="uploadMeta" class="muted hidden"></p>
       </section>
 
       <section class="panel">
