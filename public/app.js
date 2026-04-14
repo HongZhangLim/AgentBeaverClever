@@ -4,6 +4,10 @@ const authStatus = document.getElementById("authStatus");
 const connectBtn = document.getElementById("connectBtn");
 const disconnectBtn = document.getElementById("disconnectBtn");
 const fetchLatestBtn = document.getElementById("btn-fetch-latest");
+const telegramTokenInput = document.getElementById("telegramTokenInput");
+const telegramChatIdInput = document.getElementById("telegramChatIdInput");
+const saveTelegramConfigBtn = document.getElementById("saveTelegramConfigBtn");
+const telegramConfigStatus = document.getElementById("telegramConfigStatus");
 const sourceSubtitle = document.getElementById("sourceSubtitle");
 const whatsappStatus = document.getElementById("whatsappStatus");
 const whatsappQrImage = document.getElementById("whatsapp-qr-image");
@@ -206,6 +210,28 @@ async function refreshAuthStatus() {
   }
 }
 
+async function refreshTelegramConfigStatus() {
+  if (!telegramConfigStatus) {
+    return;
+  }
+
+  try {
+    const config = await fetchJson("/api/telegram/runtime-config");
+    if (config.configured) {
+      telegramConfigStatus.textContent = config.chatId
+        ? `Configured (${config.chatId})`
+        : "Configured";
+      telegramConfigStatus.style.background = "#dcfce7";
+    } else {
+      telegramConfigStatus.textContent = "Not configured";
+      telegramConfigStatus.style.background = "#fee2e2";
+    }
+  } catch {
+    telegramConfigStatus.textContent = "Status failed";
+    telegramConfigStatus.style.background = "#fee2e2";
+  }
+}
+
 async function refreshWhatsAppStatus() {
   try {
     const status = await fetchJson("/api/whatsapp/status");
@@ -376,15 +402,20 @@ async function fetchLatestAnalysis() {
   const defaultText = fetchLatestBtn.dataset.defaultText || fetchLatestBtn.textContent || "I finished a meeting";
   fetchLatestBtn.dataset.defaultText = defaultText;
   fetchLatestBtn.disabled = true;
-  fetchLatestBtn.textContent = "Fetching...";
+  fetchLatestBtn.textContent = "Analyzing...";
 
   try {
-    const latest = await fetchJson("/api/analyses/latest");
-    if (!latest?.analysisId) {
-      throw new Error("Latest analysis response is missing analysisId.");
+    setLoadingResult("Analyzing transcript.json...");
+    const analysis = await fetchJson("/api/analyses/from-hardcoded-transcript", {
+      method: "POST",
+    });
+
+    if (!analysis?.analysisId) {
+      throw new Error("Transcript analysis response is missing analysisId.");
     }
 
-    await loadAnalysisById(latest.analysisId, "Fetching latest meeting...");
+    renderAnalysisResult(analysis);
+    setAnalysisIdInUrl(analysis.analysisId);
   } catch (error) {
     setResult(error.message, true);
   } finally {
@@ -483,6 +514,39 @@ if (fetchLatestBtn) {
   fetchLatestBtn.addEventListener("click", fetchLatestAnalysis);
 }
 
+if (saveTelegramConfigBtn) {
+  saveTelegramConfigBtn.addEventListener("click", async () => {
+    const botToken = telegramTokenInput?.value?.trim() || "";
+    const chatId = telegramChatIdInput?.value?.trim() || "";
+
+    if (!botToken) {
+      setResult("Please provide a Telegram bot token.", true);
+      return;
+    }
+
+    const defaultText = saveTelegramConfigBtn.dataset.defaultText || saveTelegramConfigBtn.textContent || "Use This Bot";
+    saveTelegramConfigBtn.dataset.defaultText = defaultText;
+    saveTelegramConfigBtn.disabled = true;
+    saveTelegramConfigBtn.textContent = "Saving...";
+
+    try {
+      await fetchJson("/api/telegram/runtime-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ botToken, chatId }),
+      });
+
+      await refreshTelegramConfigStatus();
+      setSuccessResult("Telegram bot configuration updated for this runtime session.");
+    } catch (error) {
+      setResult(error.message, true);
+    } finally {
+      saveTelegramConfigBtn.disabled = false;
+      saveTelegramConfigBtn.textContent = defaultText;
+    }
+  });
+}
+
 uploadForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
@@ -577,6 +641,7 @@ executeBtn.addEventListener("click", async () => {
 });
 
 refreshAuthStatus();
+refreshTelegramConfigStatus();
 refreshWhatsAppStatus();
 setInterval(refreshWhatsAppStatus, 3000);
 loadAnalysisFromQueryParam();

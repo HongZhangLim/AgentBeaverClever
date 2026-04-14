@@ -1,0 +1,52 @@
+{
+  "name": "Meeting Transcript",
+  "type": "private_group",
+  "id": 9988776655,
+  "messages": [
+    {
+      "id": 1,
+      "type": "message",
+      "date": "2026-04-15T15:47:01",
+      "date_unixtime": "1776268021",
+      "from": "Zayn Lim",
+      "from_id": "user_zaynlim",
+      "text": "Task: Hi Chee Keat, our data structure assignment is going to be due on 8th May. We should schedule a meeting on 18th April at 8 PM to discuss the work distribution in Google Docs.",
+      "text_entities": [
+        {
+          "type": "plain",
+          "text": "Task: Hi Chee Keat, our data structure assignment is going to be due on 8th May. We should schedule a meeting on 18th April at 8 PM to discuss the work distribution in Google Docs."
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "message",
+      "date": "2026-04-15T15:47:10",
+      "date_unixtime": "1776268030",
+      "from": "Tan Chee Keat",
+      "from_id": "user_tancheekeat",
+      "text": "Task: Yes, we also need to start working on the presentation slides on 20th April and complete them by 1st May.",
+      "text_entities": [
+        {
+          "type": "plain",
+          "text": "Task: Yes, we also need to start working on the presentation slides on 20th April and complete them by 1st May."
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "message",
+      "date": "2026-04-15T15:47:14",
+      "date_unixtime": "1776268034",
+      "from": "Zayn Lim",
+      "from_id": "user_zaynlim",
+      "text": "Event: By the way, tonight 8pm has a concert at KK12. Let's go have fun.",
+      "text_entities": [
+        {
+          "type": "plain",
+          "text": "Event: By the way, tonight 8pm has a concert at KK12. Let's go have fun."
+        }
+      ]
+    }
+  ]
+}

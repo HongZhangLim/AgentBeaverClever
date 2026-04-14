@@ -36,6 +36,28 @@
         </section>
 
         <section class="panel">
+          <h2>Telegram Bot Config</h2>
+          <div class="telegram-config">
+            <input
+              id="telegramTokenInput"
+              type="password"
+              placeholder="Telegram Bot Token (from @BotFather)"
+              autocomplete="off"
+            />
+            <input
+              id="telegramChatIdInput"
+              type="text"
+              placeholder="Preferred Chat ID (optional)"
+            />
+            <div class="row">
+              <button id="saveTelegramConfigBtn" type="button">Use This Bot</button>
+              <span id="telegramConfigStatus" class="badge">Checking...</span>
+            </div>
+          </div>
+          <p class="muted">Runtime-only setting for this local server session.</p>
+        </section>
+
+        <section class="panel">
           <h2>WhatsApp Connection</h2>
           <div class="whatsapp-connection">
             <span id="whatsappStatus" class="badge">Checking...</span>
@@ -67,10 +89,7 @@
         <div id="taskTableWrap" class="hidden"></div>
 
         <div class="options hidden" id="actionOptions">
-          <label><input type="checkbox" id="toSheets" checked /> Sync to Sheets</label>
           <label><input type="checkbox" id="toCalendar" checked /> Create Calendar events</label>
-          <input type="text" id="spreadsheetId" placeholder="Spreadsheet ID (optional)" />
-          <input type="text" id="sheetName" placeholder="Sheet name (default Tasks)" value="Tasks" />
           <input type="text" id="calendarId" placeholder="Calendar ID (default primary)" value="primary" />
           <button id="executeBtn">Execute Approved Actions</button>
         </div>

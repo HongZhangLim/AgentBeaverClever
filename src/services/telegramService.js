@@ -113,7 +113,7 @@ export function initializeTelegramService({
 
       await bot.sendMessage(
         chatRef.id,
-        `✅ Chat analyzed! Review and execute actions here: ${reviewUrl}`
+        `✅ Chat analyzed! Review and execute actions here: \n ${reviewUrl}`
       );
     } catch (error) {
       const message = error?.message || "Unknown error";

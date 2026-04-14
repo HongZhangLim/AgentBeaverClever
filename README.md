@@ -20,6 +20,37 @@ Manual upload app that converts meeting transcript or chat exports into structur
    - `npm start`
 4. Open browser at `http://localhost:3000`
 
+## Hardcoded Analysis Output (Optional)
+
+Use this mode when you want deterministic output without calling Gemini.
+
+1. In `.env`, set:
+    - `HARDCODED_ANALYSIS_OUTPUT=true`
+2. Optional: create `hardcoded-analysis-output.json` in project root with this shape:
+
+```json
+{
+   "tasks": [
+      {
+         "id": "task-1",
+         "itemType": "task",
+         "title": "Prepare weekly report",
+         "owner": "Alice",
+         "dueDate": "2026-04-18",
+         "dueTime": "17:00",
+         "location": "",
+         "meetingLink": "",
+         "googleDriveAttachment": "",
+         "notes": "From hardcoded output"
+      }
+   ],
+   "decisions": ["Ship MVP this week"],
+   "blockers": ["Waiting for design sign-off"]
+}
+```
+
+If `hardcoded-analysis-output.json` is missing or invalid, the app falls back to a built-in sample output.
+
 ## Google Setup
 
 1. Create a Google Cloud project.

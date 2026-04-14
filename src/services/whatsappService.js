@@ -27,6 +27,37 @@ function getPuppeteerCacheRoots() {
   return [...new Set(roots.filter(Boolean))];
 }
 
+function getRelativeCandidatesForPlatform() {
+  const windowsCandidates = [
+    ["chrome-win64", "chrome.exe"],
+    ["chrome-win", "chrome.exe"],
+  ];
+  const linuxCandidates = [
+    ["chrome-linux64", "chrome"],
+    ["chrome-linux", "chrome"],
+  ];
+  const macCandidates = [
+    ["chrome-mac", "Chromium.app", "Contents", "MacOS", "Chromium"],
+    ["chrome-mac", "Google Chrome for Testing.app", "Contents", "MacOS", "Google Chrome for Testing"],
+  ];
+
+  const fallbackOrder = [...linuxCandidates, ...windowsCandidates, ...macCandidates];
+
+  let preferred = [];
+  if (process.platform === "win32") {
+    preferred = windowsCandidates;
+  } else if (process.platform === "darwin") {
+    preferred = macCandidates;
+  } else {
+    preferred = linuxCandidates;
+  }
+
+  const preferredKeys = new Set(preferred.map((item) => item.join("/")));
+  const remainingFallback = fallbackOrder.filter((item) => !preferredKeys.has(item.join("/")));
+
+  return [...preferred, ...remainingFallback];
+}
+
 function resolvePuppeteerExecutablePath() {
   if (process.env.PUPPETEER_EXECUTABLE_PATH) {
     return process.env.PUPPETEER_EXECUTABLE_PATH;
@@ -36,14 +67,7 @@ function resolvePuppeteerExecutablePath() {
     return process.env.CHROME_BIN;
   }
 
-  const relativeCandidates = [
-    ["chrome-linux64", "chrome"],
-    ["chrome-linux", "chrome"],
-    ["chrome-win64", "chrome.exe"],
-    ["chrome-win", "chrome.exe"],
-    ["chrome-mac", "Chromium.app", "Contents", "MacOS", "Chromium"],
-    ["chrome-mac", "Google Chrome for Testing.app", "Contents", "MacOS", "Google Chrome for Testing"],
-  ];
+  const relativeCandidates = getRelativeCandidatesForPlatform();
 
   for (const cacheRoot of getPuppeteerCacheRoots()) {
     const chromeRoot = path.join(cacheRoot, "chrome");
@@ -206,6 +230,13 @@ export function initializeWhatsAppService({
   const activeSummaries = new Set();
   const speakerNameCache = new Map();
   lastStartupError = null;
+  const pinnedRenderChromePath = path.join(
+    process.cwd(),
+    ".cache/puppeteer/chrome/linux-146.0.7680.153/chrome-linux64/chrome"
+  );
+  const resolvedExecutablePath = process.platform === "linux" && fs.existsSync(pinnedRenderChromePath)
+    ? pinnedRenderChromePath
+    : resolvePuppeteerExecutablePath();
 
   const puppeteerArgs = [
     "--no-sandbox",
@@ -218,16 +249,18 @@ export function initializeWhatsAppService({
     "--disable-gpu",
   ];
 
+  const puppeteerConfig = {
+    headless: true,
+    args: puppeteerArgs,
+  };
+
+  if (resolvedExecutablePath) {
+    puppeteerConfig.executablePath = resolvedExecutablePath;
+  }
+
   const client = new Client({
     authStrategy: new LocalAuth({ clientId: process.env.WHATSAPP_CLIENT_ID }),
-    puppeteer: {
-      headless: true,
-      executablePath: path.join(
-        process.cwd(),
-        ".cache/puppeteer/chrome/linux-146.0.7680.153/chrome-linux64/chrome"
-      ),
-      args: puppeteerArgs,
-    },
+    puppeteer: puppeteerConfig,
   });
 
   client.on("qr", async (qr) => {
@@ -324,7 +357,7 @@ export function initializeWhatsAppService({
       const reviewUrl = buildReviewUrl(webUiBaseUrl, analysisId);
 
       await msg.reply(
-        `✅ Chat analyzed! Review and execute actions here: ${reviewUrl}`
+        `✅ Chat analyzed! Review and execute actions here: \n ${reviewUrl}`
       );
 
       messageStore.delete(chatId);
