@@ -1,6 +1,5 @@
 import "dotenv/config";
 import express from "express";
-import fs from "fs";
 import multer from "multer";
 import session from "express-session";
 import path from "path";
@@ -32,14 +31,6 @@ const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
 const port = Number(process.env.PORT || 3000);
 const isProduction = process.env.NODE_ENV === "production";
-const defaultWebUiBaseUrl = process.env.APP_BASE_URL || `http://localhost:${port}`;
-const HARDCODED_ANALYSIS_FILE_NAME = "hardcoded-analysis-output.json";
-
-let telegramService = null;
-const telegramRuntimeConfig = {
-  botToken: (process.env.TELEGRAM_BOT_TOKEN || "").trim(),
-  chatId: "",
-};
 
 app.use(express.json({ limit: "2mb" }));
 app.set("trust proxy", 1);
@@ -107,78 +98,11 @@ app.post("/auth/google/disconnect", async (req, res) => {
   res.json({ ok: true });
 });
 
-function isHardcodedAnalysisEnabled() {
-  const flag = String(process.env.HARDCODED_ANALYSIS_OUTPUT || "")
-    .trim()
-    .toLowerCase();
-
-  return ["1", "true", "yes", "on"].includes(flag);
-}
-
-function getDefaultHardcodedAnalysisOutput() {
-  return {
-    tasks: [
-      {
-        id: "hardcoded-task-1",
-        itemType: "task",
-        title: "Follow up on meeting action items",
-        owner: "Unassigned",
-        dueDate: "",
-        dueTime: "",
-        location: "",
-        meetingLink: "",
-        googleDriveAttachment: "",
-        notes: "Generated from hardcoded analysis mode",
-      },
-    ],
-    decisions: ["Hardcoded analysis mode enabled"],
-    blockers: [],
-  };
-}
-
-function getHardcodedAnalysisOutput({ force = false } = {}) {
-  if (!force && !isHardcodedAnalysisEnabled()) {
-    return null;
-  }
-
-  const hardcodedPath = path.join(__dirname, HARDCODED_ANALYSIS_FILE_NAME);
-  if (!fs.existsSync(hardcodedPath)) {
-    return getDefaultHardcodedAnalysisOutput();
-  }
-
-  try {
-    const raw = fs.readFileSync(hardcodedPath, "utf-8");
-    const parsed = JSON.parse(raw);
-
-    return {
-      tasks: Array.isArray(parsed?.tasks)
-        ? parsed.tasks
-        : getDefaultHardcodedAnalysisOutput().tasks,
-      decisions: Array.isArray(parsed?.decisions)
-        ? parsed.decisions
-        : getDefaultHardcodedAnalysisOutput().decisions,
-      blockers: Array.isArray(parsed?.blockers)
-        ? parsed.blockers
-        : getDefaultHardcodedAnalysisOutput().blockers,
-    };
-  } catch (error) {
-    console.warn(
-      `[HardcodedAnalysis] Failed to parse ${HARDCODED_ANALYSIS_FILE_NAME}: ${error.message}`
-    );
-    return getDefaultHardcodedAnalysisOutput();
-  }
-}
-
-async function analyzeParsedInput(parsed, options = {}) {
-  const hardcodedOutput = getHardcodedAnalysisOutput({
-    force: options.forceHardcoded === true,
+async function analyzeParsedInput(parsed) {
+  const extracted = await extractProjectIntel({
+    canonicalText: parsed.canonicalText,
+    ingestionId: parsed.ingestionId,
   });
-  const extracted = hardcodedOutput
-    ? hardcodedOutput
-    : await extractProjectIntel({
-        canonicalText: parsed.canonicalText,
-        ingestionId: parsed.ingestionId,
-      });
 
   const analysisPayload = {
     ingestionId: parsed.ingestionId,
@@ -205,41 +129,10 @@ async function analyzeParsedInput(parsed, options = {}) {
   };
 }
 
-function initializeTelegramRuntimeService(botToken) {
-  return initializeTelegramService({
-    extractProjectIntel,
-    saveAnalysis,
-    botToken,
-    webUiBaseUrl: defaultWebUiBaseUrl,
-  });
-}
-
-async function applyTelegramRuntimeConfig({ botToken, chatId = "" }) {
-  const normalizedToken = String(botToken || "").trim();
-  const normalizedChatId = String(chatId || "").trim();
-
-  if (!normalizedToken) {
-    throw new Error("Telegram bot token is required");
-  }
-
-  if (telegramService?.stop) {
-    await telegramService.stop();
-  }
-
-  telegramRuntimeConfig.botToken = normalizedToken;
-  telegramRuntimeConfig.chatId = normalizedChatId;
-  telegramService = initializeTelegramRuntimeService(normalizedToken);
-
-  return {
-    configured: Boolean(telegramRuntimeConfig.botToken),
-    chatId: telegramRuntimeConfig.chatId,
-  };
-}
-
 app.post("/api/upload-analyze", upload.single("file"), async (req, res, next) => {
   try {
     const parsed = parseUploadedFile(req.file);
-    const response = await analyzeParsedInput(parsed, { forceHardcoded: true });
+    const response = await analyzeParsedInput(parsed);
     res.json(response);
   } catch (error) {
     next(error);
@@ -249,30 +142,6 @@ app.post("/api/upload-analyze", upload.single("file"), async (req, res, next) =>
 app.post("/api/upload-analyze-folder", upload.array("files", 400), async (req, res, next) => {
   try {
     const parsed = parseUploadedFolder(req.files || []);
-    const response = await analyzeParsedInput(parsed);
-    res.json(response);
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.post("/api/analyses/from-hardcoded-transcript", async (req, res, next) => {
-  try {
-    const transcriptFileName = "transcript.json";
-    const transcriptPath = path.join(__dirname, transcriptFileName);
-
-    if (!fs.existsSync(transcriptPath)) {
-      return res.status(404).json({
-        error: `Missing ${transcriptFileName}. Add it to project root before pressing the button.`,
-      });
-    }
-
-    const buffer = fs.readFileSync(transcriptPath);
-    const parsed = parseUploadedFile({
-      originalname: transcriptFileName,
-      buffer,
-    });
-
     const response = await analyzeParsedInput(parsed);
     res.json(response);
   } catch (error) {
@@ -346,23 +215,6 @@ app.get("/api/analyses/latest", (req, res) => {
 
 app.get("/api/whatsapp/status", (req, res) => {
   res.json(getWhatsAppStatus());
-});
-
-app.get("/api/telegram/runtime-config", (req, res) => {
-  res.json({
-    configured: Boolean(telegramRuntimeConfig.botToken),
-    chatId: telegramRuntimeConfig.chatId,
-  });
-});
-
-app.post("/api/telegram/runtime-config", async (req, res, next) => {
-  try {
-    const { botToken, chatId } = req.body || {};
-    const runtimeConfig = await applyTelegramRuntimeConfig({ botToken, chatId });
-    res.json({ ok: true, ...runtimeConfig });
-  } catch (error) {
-    next(error);
-  }
 });
 
 app.post("/api/actions/execute", async (req, res, next) => {
@@ -459,12 +311,16 @@ app.use((err, req, res, next) => {
   res.status(status).json({ error: message });
 });
 
-telegramService = initializeTelegramRuntimeService(telegramRuntimeConfig.botToken);
+const telegramService = initializeTelegramService({
+  extractProjectIntel,
+  saveAnalysis,
+  webUiBaseUrl: process.env.APP_BASE_URL || `http://localhost:${port}`,
+});
 
 const whatsappService = initializeWhatsAppService({
   extractProjectIntel,
   saveAnalysis,
-  webUiBaseUrl: defaultWebUiBaseUrl,
+  webUiBaseUrl: process.env.APP_BASE_URL || `http://localhost:${port}`,
 });
 
 async function shutdown() {
