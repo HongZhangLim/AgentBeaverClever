@@ -4,6 +4,7 @@ const authStatus = document.getElementById("authStatus");
 const connectBtn = document.getElementById("connectBtn");
 const disconnectBtn = document.getElementById("disconnectBtn");
 const fetchLatestBtn = document.getElementById("btn-fetch-latest");
+const sourceSubtitle = document.getElementById("sourceSubtitle");
 const whatsappStatus = document.getElementById("whatsappStatus");
 const whatsappQrImage = document.getElementById("whatsapp-qr-image");
 const whatsappHint = document.getElementById("whatsappHint");
@@ -306,8 +307,22 @@ function isSupportedFolderFile(file) {
   return SUPPORTED_FOLDER_EXTENSIONS.includes(extension);
 }
 
+function updateSourceSubtitle(data = {}) {
+  if (!sourceSubtitle) {
+    return;
+  }
+
+  const sourceName =
+    (typeof data.fileName === "string" && data.fileName.trim()) ||
+    (typeof data.parsedSourceFile === "string" && data.parsedSourceFile.trim()) ||
+    "Unknown meeting source";
+
+  sourceSubtitle.textContent = `Source: ${sourceName}`;
+}
+
 function renderAnalysisResult(data) {
   currentAnalysisId = data.analysisId;
+  updateSourceSubtitle(data);
 
   const eventCount = (data.tasks || []).filter((task) => normalizeItemType(task) === "event").length;
   const taskCount = (data.tasks || []).length - eventCount;

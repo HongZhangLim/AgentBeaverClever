@@ -39,6 +39,12 @@ body {
   margin: 0 0 8px;
 }
 
+.hero-source {
+  margin: 8px 0 0;
+  font-weight: 600;
+  opacity: 0.95;
+}
+
 .hero-actions {
   margin-top: 14px;
 }

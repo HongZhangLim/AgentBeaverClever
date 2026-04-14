@@ -151,7 +151,16 @@ app.post("/api/upload-analyze-folder", upload.array("files", 400), async (req, r
 
 app.post("/api/webhooks/meeting", async (req, res, next) => {
   try {
-    const { transcript, fileName } = req.body;
+    const payload = req.body || {};
+    const transcript = typeof payload.transcript === "string" ? payload.transcript.trim() : "";
+    const incomingFileName =
+      payload.fileName ||
+      payload.filename ||
+      payload.sourceFileName ||
+      payload.source ||
+      "";
+    const fileName = typeof incomingFileName === "string" ? incomingFileName.trim() : "";
+
     if (!transcript) {
       return res.status(400).json({ error: "No transcript provided" });
     }
@@ -166,6 +175,7 @@ app.post("/api/webhooks/meeting", async (req, res, next) => {
     const analysisId = saveAnalysis({
       ingestionId,
       fileName: fileName || "Automated Meeting",
+      inputType: "webhook-meeting",
       tasks: extracted.tasks,
       decisions: extracted.decisions,
       blockers: extracted.blockers,

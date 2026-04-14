@@ -70,13 +70,21 @@ To validate parser behavior from terminal:
 node --input-type=module -e "import fs from 'fs'; import path from 'path'; import { parseUploadedFolder } from './src/services/parserService.js'; const supported = new Set(['.txt','.md','.json']); function buildFolderPayload(rootDir){ const files=[]; const rootName=path.basename(rootDir); function walk(dir){ for (const entry of fs.readdirSync(dir, { withFileTypes: true })) { const full = path.join(dir, entry.name); if (entry.isDirectory()) { walk(full); continue; } const ext = path.extname(entry.name).toLowerCase(); if (!supported.has(ext)) { continue; } const relative = path.relative(rootDir, full).replace(/\\/g, '/'); files.push({ originalname: rootName + '/' + relative, buffer: fs.readFileSync(full) }); } } walk(rootDir); return files; } const folders=['./sample-whatsapp-productivity','./sample-telegram-productivity']; for (const folder of folders){ const payload=buildFolderPayload(folder); const result=parseUploadedFolder(payload); console.log(folder, JSON.stringify({ inputType: result.inputType, parsedSourceFile: result.parsedSourceFile, messageCount: result.messageCount })); }"
 ```
 
-## Demo Flow
+## End-User Guide
+
+### Demo Flow
 
 1. Connect Google account.
 2. Upload transcript/chat file (TXT, JSON, ZIP) or upload a chat export folder.
 3. Review extracted tasks.
 4. Select tasks and execute to Sheets and/or Calendar.
 5. Open links from execution results.
+
+### Team Shared Folder Setup
+
+1. Accept the invite to the shared Google Drive folder.
+2. Go to your personal Tactiq settings.
+3. Connect Google Drive and explicitly set the save location to this shared folder.
 
 ## Notes
 
