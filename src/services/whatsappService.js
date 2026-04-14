@@ -3,11 +3,13 @@ import fs from "fs";
 import path from "path";
 import QRCode from "qrcode";
 import WhatsAppWeb from "whatsapp-web.js";
+import { parseUploadedFile } from "./parserService.js";
 
 const { Client, LocalAuth } = WhatsAppWeb;
 
 const SUMMARIZE_COMMAND = "/summarize";
 const MAX_BUFFERED_MESSAGES_PER_CHAT = Number(process.env.WHATSAPP_MAX_BUFFERED_MESSAGES || 100);
+const AUDIO_FALLBACK_LOADING_DELAY_MS = Number(process.env.AUDIO_SUMMARY_LOADING_DELAY_MS || 8000);
 const messageStore = new Map();
 
 let currentQR = null;
@@ -88,8 +90,26 @@ function formatCanonicalTimestamp(isoTimestamp) {
 }
 
 function buildReviewUrl(webUiBaseUrl, analysisId) {
-  const baseUrl = String(webUiBaseUrl || "http://localhost:3000").replace(/\/+$/, "");
+  const baseUrl = String(webUiBaseUrl || "http://localhost:3000").trim().replace(/\/+$/, "");
   return `${baseUrl}/?analysisId=${encodeURIComponent(analysisId)}`;
+}
+
+function isLocalReviewUrl(reviewUrl) {
+  try {
+    const parsed = new URL(reviewUrl);
+    const host = parsed.hostname.toLowerCase();
+    if (host === "localhost" || host === "127.0.0.1" || host === "::1") {
+      return true;
+    }
+
+    if (host.startsWith("192.168.") || host.startsWith("10.") || host.startsWith("172.")) {
+      return true;
+    }
+
+    return false;
+  } catch {
+    return true;
+  }
 }
 
 function resolveChatIdFromMessage(message) {
@@ -165,6 +185,67 @@ function isStorableTextMessage(message, text) {
   return true;
 }
 
+function isAudioInputMessage(message) {
+  const messageType = String(message?.type || "").toLowerCase();
+  return messageType === "audio" || messageType === "ptt";
+}
+
+function waitForAudioFallbackDelay() {
+  return new Promise((resolve) => {
+    setTimeout(resolve, Math.max(0, AUDIO_FALLBACK_LOADING_DELAY_MS));
+  });
+}
+
+function resolvePreparedAudioTranscriptPath() {
+  const configured = String(process.env.AUDIO_SUMMARY_FALLBACK_FILE || "").trim();
+  const candidates = [];
+
+  if (configured) {
+    candidates.push(path.isAbsolute(configured) ? configured : path.join(process.cwd(), configured));
+  }
+
+  candidates.push(path.join(process.cwd(), "whatsapp.txt"));
+  candidates.push(
+    path.join(process.cwd(), "sample-whatsapp-productivity", "WhatsApp Chat with ProductivitySprint.txt")
+  );
+
+  return candidates.find((candidate) => fs.existsSync(candidate)) || "";
+}
+
+function loadPreparedAudioFallback() {
+  const transcriptPath = resolvePreparedAudioTranscriptPath();
+  if (!transcriptPath) {
+    throw new Error(
+      "Prepared transcript not found. Add whatsapp.txt in project root or set AUDIO_SUMMARY_FALLBACK_FILE."
+    );
+  }
+
+  const fileName = path.basename(transcriptPath);
+  const buffer = fs.readFileSync(transcriptPath);
+
+  try {
+    const parsed = parseUploadedFile({
+      originalname: fileName,
+      buffer,
+    });
+
+    return {
+      canonicalText: parsed.canonicalText,
+      messageCount: parsed.messageCount,
+      fileName,
+      parsedSourceFile: parsed.parsedSourceFile || fileName,
+    };
+  } catch {
+    const raw = buffer.toString("utf-8").replace(/^\uFEFF/, "");
+    return {
+      canonicalText: raw,
+      messageCount: raw.split(/\r?\n/).filter((line) => line.trim()).length,
+      fileName,
+      parsedSourceFile: fileName,
+    };
+  }
+}
+
 function getOrCreateChatStore(chatId) {
   if (!messageStore.has(chatId)) {
     messageStore.set(chatId, []);
@@ -205,6 +286,7 @@ export function initializeWhatsAppService({
 
   const activeSummaries = new Set();
   const speakerNameCache = new Map();
+  const audioDetectedChats = new Set();
   lastStartupError = null;
 
   const puppeteerArgs = [
@@ -263,12 +345,16 @@ export function initializeWhatsAppService({
   });
 
   client.on("message_create", async (msg) => {
+    const chatId = resolveChatIdFromMessage(msg);
+
+    if (isAudioInputMessage(msg)) {
+      audioDetectedChats.add(chatId);
+    }
+
     const text = normalizeText(msg?.body);
     if (!isStorableTextMessage(msg, text)) {
       return;
     }
-
-    const chatId = resolveChatIdFromMessage(msg);
 
     if (text !== SUMMARIZE_COMMAND) {
       const speaker = await resolveSpeakerNameFromMessage(msg, speakerNameCache);
@@ -288,19 +374,39 @@ export function initializeWhatsAppService({
     activeSummaries.add(chatId);
 
     try {
+      const hasAudioInput = audioDetectedChats.has(chatId);
       const cachedMessages = messageStore.get(chatId) || [];
-      if (!cachedMessages.length) {
+      if (!hasAudioInput && !cachedMessages.length) {
         await msg.reply("Not enough recent messages cached to summarize.");
         return;
       }
 
-      await msg.reply(`Analyzing ${cachedMessages.length} cached message(s)...`);
+      let canonicalText = "";
+      let messageCount = 0;
+      let fileName = "";
+      let parsedSourceFile = "";
+      let inputType = "whatsapp-web";
 
-      const canonicalText = cachedMessages
-        .map((entry) => {
-          return `[${formatCanonicalTimestamp(entry.timestamp)}] ${entry.speaker}: ${entry.message}`;
-        })
-        .join("\n");
+      if (hasAudioInput) {
+        const prepared = loadPreparedAudioFallback();
+        await msg.reply(`Analyzing ${prepared.messageCount} cached message(s)...`);
+        await waitForAudioFallbackDelay();
+        canonicalText = prepared.canonicalText;
+        messageCount = prepared.messageCount;
+        fileName = prepared.fileName;
+        parsedSourceFile = prepared.parsedSourceFile;
+        inputType = "whatsapp-audio-fallback";
+      } else {
+        await msg.reply(`Analyzing ${cachedMessages.length} cached message(s)...`);
+        canonicalText = cachedMessages
+          .map((entry) => {
+            return `[${formatCanonicalTimestamp(entry.timestamp)}] ${entry.speaker}: ${entry.message}`;
+          })
+          .join("\n");
+        messageCount = cachedMessages.length;
+        fileName = `whatsapp-chat-${chatId}.txt`;
+        parsedSourceFile = `whatsapp:${chatId}`;
+      }
 
       const ingestionId = `whatsapp-${chatId}-${crypto.randomUUID()}`;
 
@@ -311,10 +417,10 @@ export function initializeWhatsAppService({
 
       const analysisPayload = {
         ingestionId,
-        fileName: `whatsapp-chat-${chatId}.txt`,
-        parsedSourceFile: `whatsapp:${chatId}`,
-        inputType: "whatsapp-web",
-        messageCount: cachedMessages.length,
+        fileName,
+        parsedSourceFile,
+        inputType,
+        messageCount,
         tasks: extracted.tasks,
         decisions: extracted.decisions,
         blockers: extracted.blockers,
@@ -323,11 +429,17 @@ export function initializeWhatsAppService({
       const analysisId = saveAnalysis(analysisPayload);
       const reviewUrl = buildReviewUrl(webUiBaseUrl, analysisId);
 
-      await msg.reply(
-        `✅ Chat analyzed! Review and execute actions here: ${reviewUrl}`
-      );
+      await msg.reply("✅ Chat analyzed! Open the review link below:");
+      await msg.reply(reviewUrl);
+
+      if (isLocalReviewUrl(reviewUrl)) {
+        await msg.reply(
+          "⚠️ This link is local-only. Set APP_BASE_URL to your public https URL so it can be opened directly from Telegram/WhatsApp."
+        );
+      }
 
       messageStore.delete(chatId);
+      audioDetectedChats.delete(chatId);
     } catch (error) {
       await msg.reply(`❌ Failed to analyze chat: ${error?.message || "Unknown error"}`);
     } finally {
@@ -355,6 +467,7 @@ export function initializeWhatsAppService({
       activeSummaries.clear();
       speakerNameCache.clear();
       messageStore.clear();
+      audioDetectedChats.clear();
     },
   };
 

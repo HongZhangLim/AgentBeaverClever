@@ -14,3 +14,8 @@ kmkdihatiku/
 sample-telegram-productivity/
 sample-whatsapp-productivity/
 WhatsApp Chat with UMHackathon
+
+# Local tools and one-off fixtures
+ngrok.exe
+transcript.json
+whatsapp.txt

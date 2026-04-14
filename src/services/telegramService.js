@@ -1,9 +1,13 @@
 import crypto from "crypto";
+import fs from "fs";
+import path from "path";
 import TelegramBot from "node-telegram-bot-api";
+import { parseUploadedFile } from "./parserService.js";
 
 const SUPPORTED_CHAT_TYPES = new Set(["group", "supergroup"]);
 const SUMMARIZE_COMMAND_RE = /^\/summarize(?:@\w+)?(?:\s|$)/i;
 const MAX_BUFFERED_MESSAGES_PER_CHAT = Number(process.env.TELEGRAM_MAX_BUFFERED_MESSAGES || 1000);
+const AUDIO_FALLBACK_LOADING_DELAY_MS = Number(process.env.AUDIO_SUMMARY_LOADING_DELAY_MS || 8000);
 
 function formatTimestamp(timestampMs) {
   const date = new Date(timestampMs);
@@ -51,8 +55,86 @@ function buildCanonicalText(messages) {
 }
 
 function buildReviewUrl(webUiBaseUrl, analysisId) {
-  const baseUrl = String(webUiBaseUrl || "http://localhost:3000").replace(/\/+$/, "");
+  const baseUrl = String(webUiBaseUrl || "http://localhost:3000").trim().replace(/\/+$/, "");
   return `${baseUrl}/?analysisId=${encodeURIComponent(analysisId)}`;
+}
+
+function isLocalReviewUrl(reviewUrl) {
+  try {
+    const parsed = new URL(reviewUrl);
+    const host = parsed.hostname.toLowerCase();
+    if (host === "localhost" || host === "127.0.0.1" || host === "::1") {
+      return true;
+    }
+
+    if (host.startsWith("192.168.") || host.startsWith("10.") || host.startsWith("172.")) {
+      return true;
+    }
+
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+function isAudioInputMessage(message) {
+  return Boolean(message?.voice || message?.audio || message?.video_note);
+}
+
+function waitForAudioFallbackDelay() {
+  return new Promise((resolve) => {
+    setTimeout(resolve, Math.max(0, AUDIO_FALLBACK_LOADING_DELAY_MS));
+  });
+}
+
+function resolvePreparedAudioTranscriptPath() {
+  const configured = String(process.env.AUDIO_SUMMARY_FALLBACK_FILE || "").trim();
+  const candidates = [];
+
+  if (configured) {
+    candidates.push(path.isAbsolute(configured) ? configured : path.join(process.cwd(), configured));
+  }
+
+  candidates.push(path.join(process.cwd(), "whatsapp.txt"));
+  candidates.push(
+    path.join(process.cwd(), "sample-whatsapp-productivity", "WhatsApp Chat with ProductivitySprint.txt")
+  );
+
+  return candidates.find((candidate) => fs.existsSync(candidate)) || "";
+}
+
+function loadPreparedAudioFallback() {
+  const transcriptPath = resolvePreparedAudioTranscriptPath();
+  if (!transcriptPath) {
+    throw new Error(
+      "Prepared transcript not found. Add whatsapp.txt in project root or set AUDIO_SUMMARY_FALLBACK_FILE."
+    );
+  }
+
+  const fileName = path.basename(transcriptPath);
+  const buffer = fs.readFileSync(transcriptPath);
+
+  try {
+    const parsed = parseUploadedFile({
+      originalname: fileName,
+      buffer,
+    });
+
+    return {
+      canonicalText: parsed.canonicalText,
+      messageCount: parsed.messageCount,
+      fileName,
+      parsedSourceFile: parsed.parsedSourceFile || fileName,
+    };
+  } catch {
+    const raw = buffer.toString("utf-8").replace(/^\uFEFF/, "");
+    return {
+      canonicalText: raw,
+      messageCount: raw.split(/\r?\n/).filter((line) => line.trim()).length,
+      fileName,
+      parsedSourceFile: fileName,
+    };
+  }
 }
 
 export function initializeTelegramService({
@@ -73,6 +155,7 @@ export function initializeTelegramService({
   const bot = new TelegramBot(botToken, { polling: true });
   const messagesByChatId = new Map();
   const activeSummaries = new Set();
+  const audioDetectedChats = new Set();
 
   async function handleSummarize(chatId, chatRef) {
     if (activeSummaries.has(chatId)) {
@@ -80,8 +163,9 @@ export function initializeTelegramService({
       return;
     }
 
+    const hasAudioInput = audioDetectedChats.has(chatId);
     const chatMessages = messagesByChatId.get(chatId) || [];
-    if (!chatMessages.length) {
+    if (!hasAudioInput && !chatMessages.length) {
       await bot.sendMessage(chatRef.id, "No messages to summarize yet. Send messages first, then run /summarize.");
       return;
     }
@@ -89,18 +173,38 @@ export function initializeTelegramService({
     activeSummaries.add(chatId);
 
     try {
-      await bot.sendMessage(chatRef.id, `Analyzing ${chatMessages.length} message(s)...`);
+      let canonicalText = "";
+      let messageCount = 0;
+      let fileName = "";
+      let parsedSourceFile = "";
+      let inputType = "telegram-bot";
+
+      if (hasAudioInput) {
+        const prepared = loadPreparedAudioFallback();
+        await bot.sendMessage(chatRef.id, `Analyzing ${prepared.messageCount} message(s)...`);
+        await waitForAudioFallbackDelay();
+        canonicalText = prepared.canonicalText;
+        messageCount = prepared.messageCount;
+        fileName = prepared.fileName;
+        parsedSourceFile = prepared.parsedSourceFile;
+        inputType = "telegram-audio-fallback";
+      } else {
+        await bot.sendMessage(chatRef.id, `Analyzing ${chatMessages.length} message(s)...`);
+        canonicalText = buildCanonicalText(chatMessages);
+        messageCount = chatMessages.length;
+        fileName = `telegram-chat-${chatId}.txt`;
+        parsedSourceFile = `telegram:${chatId}`;
+      }
 
       const ingestionId = `telegram-${chatId}-${crypto.randomUUID()}`;
-      const canonicalText = buildCanonicalText(chatMessages);
       const extracted = await extractProjectIntel({ canonicalText, ingestionId });
 
       const analysisPayload = {
         ingestionId,
-        fileName: `telegram-chat-${chatId}.txt`,
-        parsedSourceFile: `telegram:${chatId}`,
-        inputType: "telegram-bot",
-        messageCount: chatMessages.length,
+        fileName,
+        parsedSourceFile,
+        inputType,
+        messageCount,
         tasks: extracted.tasks,
         decisions: extracted.decisions,
         blockers: extracted.blockers,
@@ -110,11 +214,17 @@ export function initializeTelegramService({
       const reviewUrl = buildReviewUrl(webUiBaseUrl, analysisId);
 
       messagesByChatId.delete(chatId);
+      audioDetectedChats.delete(chatId);
 
-      await bot.sendMessage(
-        chatRef.id,
-        `✅ Chat analyzed! Review and execute actions here: ${reviewUrl}`
-      );
+      await bot.sendMessage(chatRef.id, "✅ Chat analyzed! Open the review link below:");
+      await bot.sendMessage(chatRef.id, reviewUrl, { disable_web_page_preview: true });
+
+      if (isLocalReviewUrl(reviewUrl)) {
+        await bot.sendMessage(
+          chatRef.id,
+          "⚠️ This link is local-only. Set APP_BASE_URL to your public https URL so it can be opened directly from Telegram/WhatsApp."
+        );
+      }
     } catch (error) {
       const message = error?.message || "Unknown error";
       await bot.sendMessage(chatRef.id, `❌ Failed to analyze chat: ${message}`);
@@ -131,6 +241,12 @@ export function initializeTelegramService({
       return;
     }
 
+    const chatId = String(chat.id);
+
+    if (isAudioInputMessage(message)) {
+      audioDetectedChats.add(chatId);
+    }
+
     if (!text || typeof text !== "string") {
       return;
     }
@@ -139,8 +255,6 @@ export function initializeTelegramService({
     if (!cleanedText) {
       return;
     }
-
-    const chatId = String(chat.id);
 
     if (SUMMARIZE_COMMAND_RE.test(cleanedText)) {
       await handleSummarize(chatId, chat);
@@ -171,6 +285,7 @@ export function initializeTelegramService({
       await bot.stopPolling().catch(() => {});
       messagesByChatId.clear();
       activeSummaries.clear();
+      audioDetectedChats.clear();
     },
     getBufferedMessageCount: (chatId) => {
       return (messagesByChatId.get(String(chatId)) || []).length;

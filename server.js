@@ -1,4 +1,5 @@
 import "dotenv/config";
+import fs from "fs";
 import express from "express";
 import multer from "multer";
 import session from "express-session";
@@ -31,6 +32,22 @@ const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
 const port = Number(process.env.PORT || 3000);
 const isProduction = process.env.NODE_ENV === "production";
+const defaultWebUiBaseUrl = (process.env.APP_BASE_URL || `http://localhost:${port}`).trim();
+const HARDCODED_TRANSCRIPT_FILE_NAME = "transcript.json";
+const TELEGRAM_DEFAULT_CHAT_ID = "-1003766186850";
+
+let telegramService = null;
+const telegramRuntimeConfig = {
+  botToken: (process.env.TELEGRAM_BOT_TOKEN || "").trim(),
+  chatId: "",
+};
+
+function getTelegramRuntimeConfigResponse() {
+  return {
+    configured: Boolean(telegramRuntimeConfig.botToken),
+    chatId: telegramRuntimeConfig.chatId || TELEGRAM_DEFAULT_CHAT_ID,
+  };
+}
 
 app.use(express.json({ limit: "2mb" }));
 app.set("trust proxy", 1);
@@ -129,6 +146,33 @@ async function analyzeParsedInput(parsed) {
   };
 }
 
+function initializeTelegramRuntimeService(botToken) {
+  return initializeTelegramService({
+    extractProjectIntel,
+    saveAnalysis,
+    botToken,
+    webUiBaseUrl: defaultWebUiBaseUrl,
+  });
+}
+
+async function applyTelegramRuntimeConfig({ botToken, chatId = "" }) {
+  const normalizedToken = String(botToken || "").trim();
+  const normalizedChatId = String(chatId || "").trim();
+
+  if (!normalizedToken) {
+    throw new Error("Telegram bot token is required");
+  }
+
+  if (telegramService?.stop) {
+    await telegramService.stop();
+  }
+
+  telegramRuntimeConfig.botToken = normalizedToken;
+  telegramRuntimeConfig.chatId = normalizedChatId;
+  telegramService = initializeTelegramRuntimeService(normalizedToken);
+
+  return getTelegramRuntimeConfigResponse();
+}
 app.post("/api/upload-analyze", upload.single("file"), async (req, res, next) => {
   try {
     const parsed = parseUploadedFile(req.file);
@@ -149,6 +193,65 @@ app.post("/api/upload-analyze-folder", upload.array("files", 400), async (req, r
   }
 });
 
+app.post("/api/analyses/from-hardcoded-transcript", async (req, res, next) => {
+  try {
+    const transcriptFileName = HARDCODED_TRANSCRIPT_FILE_NAME;
+    const transcriptPath = path.join(__dirname, transcriptFileName);
+
+    if (!fs.existsSync(transcriptPath)) {
+      return res.status(404).json({
+        error: `Missing ${transcriptFileName}. Add it to project root before pressing the button.`,
+      });
+    }
+
+    const rawTranscript = fs.readFileSync(transcriptPath, "utf-8");
+
+    try {
+      const precomputed = JSON.parse(rawTranscript);
+      if (Array.isArray(precomputed?.tasks)) {
+        const tasks = precomputed.tasks;
+        const decisions = Array.isArray(precomputed?.decisions) ? precomputed.decisions : [];
+        const blockers = Array.isArray(precomputed?.blockers) ? precomputed.blockers : [];
+        const inputType = "precomputed-analysis-json";
+
+        const analysisId = saveAnalysis({
+          ingestionId: `precomputed-${Date.now()}`,
+          fileName: transcriptFileName,
+          parsedSourceFile: transcriptFileName,
+          inputType,
+          messageCount: tasks.length,
+          tasks,
+          decisions,
+          blockers,
+        });
+
+        return res.json({
+          analysisId,
+          fileName: transcriptFileName,
+          parsedSourceFile: transcriptFileName,
+          inputType,
+          messageCount: tasks.length,
+          tasks,
+          decisions,
+          blockers,
+        });
+      }
+    } catch {
+      // Fall back to normal transcript parsing when JSON is not precomputed analysis.
+    }
+
+    const buffer = Buffer.from(rawTranscript, "utf-8");
+    const parsed = parseUploadedFile({
+      originalname: transcriptFileName,
+      buffer,
+    });
+
+    const response = await analyzeParsedInput(parsed);
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+});
 app.post("/api/webhooks/meeting", async (req, res, next) => {
   try {
     const payload = req.body || {};
@@ -217,6 +320,19 @@ app.get("/api/whatsapp/status", (req, res) => {
   res.json(getWhatsAppStatus());
 });
 
+app.get("/api/telegram/runtime-config", (req, res) => {
+  res.json(getTelegramRuntimeConfigResponse());
+});
+
+app.post("/api/telegram/runtime-config", async (req, res, next) => {
+  try {
+    const { botToken, chatId } = req.body || {};
+    const runtimeConfig = await applyTelegramRuntimeConfig({ botToken, chatId });
+    res.json({ ok: true, ...runtimeConfig });
+  } catch (error) {
+    next(error);
+  }
+});
 app.post("/api/actions/execute", async (req, res, next) => {
   try {
     const tokens = req.session.googleTokens;
@@ -311,11 +427,9 @@ app.use((err, req, res, next) => {
   res.status(status).json({ error: message });
 });
 
-const telegramService = initializeTelegramService({
-  extractProjectIntel,
-  saveAnalysis,
-  webUiBaseUrl: process.env.APP_BASE_URL || `http://localhost:${port}`,
-});
+if (telegramRuntimeConfig.botToken) {
+  telegramService = initializeTelegramRuntimeService(telegramRuntimeConfig.botToken);
+}
 
 const whatsappService = initializeWhatsAppService({
   extractProjectIntel,
