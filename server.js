@@ -1,5 +1,4 @@
 import "dotenv/config";
-import crypto from "crypto";
 import express from "express";
 import multer from "multer";
 import session from "express-session";
@@ -130,47 +129,6 @@ async function analyzeParsedInput(parsed) {
   };
 }
 
-function extractWebhookText(body = {}) {
-  const candidates = [body?.text, body?.transcript, body?.content];
-
-  for (const value of candidates) {
-    if (typeof value === "string" && value.trim()) {
-      return value.trim();
-    }
-
-    if (Array.isArray(value)) {
-      const combined = value
-        .map((item) => {
-          if (typeof item === "string") {
-            return item;
-          }
-          return item?.text || item?.content || "";
-        })
-        .join("\n")
-        .trim();
-
-      if (combined) {
-        return combined;
-      }
-    }
-  }
-
-  return "";
-}
-
-function buildCanonicalTextFromWebhookText(text) {
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  if (!lines.length) {
-    return "";
-  }
-
-  return lines.map((line) => `Unknown: ${line}`).join("\n");
-}
-
 app.post("/api/upload-analyze", upload.single("file"), async (req, res, next) => {
   try {
     const parsed = parseUploadedFile(req.file);
@@ -193,37 +151,30 @@ app.post("/api/upload-analyze-folder", upload.array("files", 400), async (req, r
 
 app.post("/api/webhooks/meeting", async (req, res, next) => {
   try {
-    const incomingText = extractWebhookText(req.body || {});
-    if (!incomingText) {
-      return res.status(400).json({ error: "Missing transcript text in payload" });
+    const { transcript, fileName } = req.body;
+    if (!transcript) {
+      return res.status(400).json({ error: "No transcript provided" });
     }
 
-    const canonicalText = buildCanonicalTextFromWebhookText(incomingText);
-    if (!canonicalText) {
-      return res.status(400).json({ error: "No usable transcript text found" });
-    }
-
-    const ingestionId = `webhook-${crypto.randomUUID()}`;
+    const ingestionId = `webhook-${Date.now()}`;
 
     const extracted = await extractProjectIntel({
-      canonicalText,
+      canonicalText: transcript,
       ingestionId,
     });
 
-    const analysisPayload = {
+    const analysisId = saveAnalysis({
       ingestionId,
-      fileName: "meeting-webhook",
-      parsedSourceFile: "meeting-webhook.json",
-      inputType: "webhook-meeting",
-      messageCount: canonicalText.split("\n").length,
+      fileName: fileName || "Automated Meeting",
       tasks: extracted.tasks,
       decisions: extracted.decisions,
       blockers: extracted.blockers,
-    };
+    });
 
-    const analysisId = saveAnalysis(analysisPayload);
+    console.log(`[Webhook] Processed meeting: ${analysisId}`);
     res.json({ ok: true, analysisId });
   } catch (error) {
+    console.error("[Webhook Error]:", error.message);
     next(error);
   }
 });
