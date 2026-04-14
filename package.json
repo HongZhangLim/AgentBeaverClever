@@ -5,16 +5,22 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
+    "postinstall": "npx puppeteer browsers install chrome --path ./.cache/puppeteer",
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "restart:app": "powershell -ExecutionPolicy Bypass -File ./scripts/restart-app.ps1"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
+    "adm-zip": "^0.5.16",
     "dotenv": "^16.5.0",
     "express": "^4.21.2",
     "express-session": "^1.18.1",
     "googleapis": "^146.0.0",
     "multer": "^1.4.5-lts.2",
+    "node-telegram-bot-api": "^0.67.0",
+    "qrcode": "^1.5.4",
+    "whatsapp-web.js": "github:pedroslopez/whatsapp-web.js",
     "zod": "^3.24.2"
   }
 }

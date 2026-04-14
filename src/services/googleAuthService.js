@@ -1,17 +1,19 @@
 import { google } from "googleapis";
 
+const REQUIRED_SCOPES = [
+  "https://www.googleapis.com/auth/spreadsheets",
+  "https://www.googleapis.com/auth/calendar.events",
+  "https://www.googleapis.com/auth/tasks",
+  "https://www.googleapis.com/auth/drive.file",
+  "https://www.googleapis.com/auth/userinfo.email",
+  "openid",
+];
+
 export function getScopes() {
   const configured = process.env.GOOGLE_OAUTH_SCOPES?.trim();
-  if (configured) {
-    return configured.split(/\s+/);
-  }
+  const configuredScopes = configured ? configured.split(/\s+/).filter(Boolean) : [];
 
-  return [
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/calendar.events",
-    "https://www.googleapis.com/auth/userinfo.email",
-    "openid",
-  ];
+  return [...new Set([...configuredScopes, ...REQUIRED_SCOPES])];
 }
 
 export function buildOAuthClient() {
