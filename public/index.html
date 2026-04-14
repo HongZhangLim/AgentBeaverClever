@@ -16,12 +16,18 @@
             class="app-logo"
             onerror="this.style.display='none'"
           />
-          <h1>Agent Beaver Clever🦫🪵🦎</h1>
+          <h1>Agent Beaver Clever 🪵🦎</h1>
         </div>
-        <p class="hero-description">Upload transcript/chat, extract actions with Gemini, and sync approved tasks to Google Sheets and Calendar.</p>
+        <p class="hero-description">Upload transcript/chat, extract actions with Google Gemma, and sync approved tasks to Google Calendar with actions function ( Docs | Slides | Sheets ).</p>
         <p id="sourceSubtitle" class="hero-source">Source: Not loaded yet</p>
         <div class="hero-actions">
           <button id="btn-fetch-latest" type="button">I finished a meeting</button>
+          <img
+            src="/loaf.png"
+            alt="Loaf"
+            class="loaf-icon"
+            onerror="this.style.display='none'"
+          />
         </div>
       </header>
 
@@ -47,6 +53,29 @@
             <p id="whatsappHint" class="muted">Waiting for QR code...</p>
           </div>
         </section>
+
+        <section class="panel">
+          <h2>Telegram Bot Config</h2>
+          <div class="row">
+            <span id="telegramConfigStatus" class="badge">Checking...</span>
+          </div>
+          <div class="config-stack">
+            <input
+              id="telegramTokenInput"
+              type="password"
+              placeholder="Telegram Bot Token (from @BotFather)"
+              autocomplete="off"
+            />
+            <input
+              id="telegramChatIdInput"
+              type="text"
+              placeholder="Preferred Chat ID (optional)"
+              autocomplete="off"
+            />
+            <button id="telegramSaveBtn" type="button">Save Telegram Config</button>
+            <p class="muted">Used for Telegram /summarize flow at runtime.</p>
+          </div>
+        </section>
       </div>
 
       <section class="panel">
@@ -67,11 +96,8 @@
         <div id="taskTableWrap" class="hidden"></div>
 
         <div class="options hidden" id="actionOptions">
-          <label><input type="checkbox" id="toSheets" checked /> Sync to Sheets</label>
+          
           <label><input type="checkbox" id="toCalendar" checked /> Create Calendar events</label>
-          <input type="text" id="spreadsheetId" placeholder="Spreadsheet ID (optional)" />
-          <input type="text" id="sheetName" placeholder="Sheet name (default Tasks)" value="Tasks" />
-          <input type="text" id="calendarId" placeholder="Calendar ID (default primary)" value="primary" />
           <button id="executeBtn">Execute Approved Actions</button>
         </div>
 

@@ -8,6 +8,15 @@ const sourceSubtitle = document.getElementById("sourceSubtitle");
 const whatsappStatus = document.getElementById("whatsappStatus");
 const whatsappQrImage = document.getElementById("whatsapp-qr-image");
 const whatsappHint = document.getElementById("whatsappHint");
+const telegramConfigStatus = document.getElementById("telegramConfigStatus");
+const telegramTokenInput = document.getElementById("telegramTokenInput");
+const telegramChatIdInput = document.getElementById("telegramChatIdInput");
+const telegramSaveBtn = document.getElementById("telegramSaveBtn");
+const legacyTelegramPreview = document.getElementById("telegramConfigPreview");
+
+if (legacyTelegramPreview) {
+  legacyTelegramPreview.remove();
+}
 
 const uploadForm = document.getElementById("uploadForm");
 const fileInput = document.getElementById("fileInput");
@@ -26,13 +35,18 @@ const sheetName = document.getElementById("sheetName");
 const calendarId = document.getElementById("calendarId");
 
 const SUPPORTED_FOLDER_EXTENSIONS = ["txt", "md", "json"];
-const SQUIRREL_RUNNER = "  🐿️  ";
+const SQUIRREL_RUNNER = "🐿️";
 const LOADING_TRAIL_EMOJIS = ["🦫", "🦎", "🪵", "🥩", "🍯"];
 const LOADING_TRAIL_MAX_STEPS = 55;
 const SQUIRREL_TICK_MS = 100;
 const MAX_LOADING_PERCENT = 99;
 const SUCCESS_BOX_MIN_WIDTH = 72;
 const SUCCESS_BOX_MAX_WIDTH = 110;
+const TRANSCRIPT_ANALYSIS_MIN_LOADING_MS = 3000;
+const TELEGRAM_DEFAULT_CHAT_ID = "-1003766186850";
+const TELEGRAM_CONFIGURED_TOKEN_PLACEHOLDER = "................";
+const TELEGRAM_DEFAULT_TOKEN_PLACEHOLDER = "Telegram Bot Token (from @BotFather)";
+const TELEGRAM_DEFAULT_CHAT_PLACEHOLDER = "Preferred Chat ID (optional)";
 
 let resultAnimationId = null;
 
@@ -70,9 +84,13 @@ function fitText(text, width) {
   return `${text.slice(0, Math.max(0, width - 3))}...`;
 }
 
-function renderSquirrelAt(position) {
-  const offset = " ".repeat(Math.max(0, position));
-  return `${offset}${SQUIRREL_RUNNER}`;
+function centerOrTrimText(text, width) {
+  const value = String(text || "");
+  if (value.length > width) {
+    return `${value.slice(0, Math.max(0, width - 3))}...`;
+  }
+
+  return centerText(value, width);
 }
 
 function pickNextLoadingEmoji(lastEmoji = "") {
@@ -105,17 +123,19 @@ function buildSuccessOutput(message) {
     `| ${centerText("All operations finished successfully", innerWidth)} |`,
     `| ${centerText("Loading... 100%", innerWidth)} |`,
     separator,
-    `| ${fitText(message, innerWidth)} |`,
+    `| ${centerOrTrimText(message, innerWidth)} |`,
     topBottom,
   ].join("\n");
 }
 
-function buildLoadingFrame(message, position, progressPercent, emojiTrail = "", centerWidth = 80) {
-  const squirrel = renderSquirrelAt(position);
+function buildLoadingFrame(message, progressPercent, emojiTrail = "", centerWidth = 80) {
+  const centeredSquirrel = centerText(SQUIRREL_RUNNER, centerWidth);
+  const centeredMessage = centerText(String(message || ""), centerWidth);
   const loadingLabel = `Loading... ${progressPercent}%`;
   const centeredLoading = centerText(loadingLabel, Math.max(loadingLabel.length + 2, centerWidth));
+  const centeredTrail = centerText(String(emojiTrail || ""), centerWidth);
 
-  return `${message}\n\n${squirrel}\n${centeredLoading}\n${emojiTrail}`;
+  return `${centeredMessage}\n\n${centeredSquirrel}\n${centeredLoading}\n${centeredTrail}`;
 }
 
 function stopResultAnimation() {
@@ -138,9 +158,7 @@ function setLoadingResult(message) {
   resultBox.classList.add("loading");
 
   const terminalWidth = getResultCharCapacity();
-  const squirrelWidth = Array.from(SQUIRREL_RUNNER).length;
   const centerWidth = Math.max(40, terminalWidth - 2);
-  const squirrelPosition = Math.max(0, Math.floor((centerWidth - squirrelWidth) / 2));
 
   let emojiTrail = "";
   let emojiSteps = 0;
@@ -148,7 +166,6 @@ function setLoadingResult(message) {
   let progressPercent = 0;
   resultBox.textContent = buildLoadingFrame(
     message,
-    squirrelPosition,
     progressPercent,
     emojiTrail,
     centerWidth
@@ -172,7 +189,6 @@ function setLoadingResult(message) {
 
     resultBox.textContent = buildLoadingFrame(
       message,
-      squirrelPosition,
       progressPercent,
       emojiTrail,
       centerWidth
@@ -206,6 +222,45 @@ async function refreshAuthStatus() {
   }
 }
 
+async function refreshTelegramConfigStatus() {
+  if (!telegramConfigStatus) {
+    return;
+  }
+
+  try {
+    const config = await fetchJson("/api/telegram/runtime-config");
+    const chatId = String(config.chatId || "").trim() || TELEGRAM_DEFAULT_CHAT_ID;
+
+    if (config.configured) {
+      telegramConfigStatus.textContent = "Configured";
+      telegramConfigStatus.style.background = "#dcfce7";
+      if (telegramTokenInput) {
+        telegramTokenInput.placeholder = TELEGRAM_CONFIGURED_TOKEN_PLACEHOLDER;
+      }
+      if (telegramChatIdInput) {
+        telegramChatIdInput.placeholder = chatId;
+      }
+    } else {
+      telegramConfigStatus.textContent = "Not configured";
+      telegramConfigStatus.style.background = "#fee2e2";
+      if (telegramTokenInput) {
+        telegramTokenInput.placeholder = TELEGRAM_DEFAULT_TOKEN_PLACEHOLDER;
+      }
+      if (telegramChatIdInput) {
+        telegramChatIdInput.placeholder = TELEGRAM_DEFAULT_CHAT_PLACEHOLDER;
+      }
+    }
+  } catch {
+    telegramConfigStatus.textContent = "Status failed";
+    telegramConfigStatus.style.background = "#fee2e2";
+    if (telegramTokenInput) {
+      telegramTokenInput.placeholder = TELEGRAM_DEFAULT_TOKEN_PLACEHOLDER;
+    }
+    if (telegramChatIdInput) {
+      telegramChatIdInput.placeholder = TELEGRAM_DEFAULT_CHAT_PLACEHOLDER;
+    }
+  }
+}
 async function refreshWhatsAppStatus() {
   try {
     const status = await fetchJson("/api/whatsapp/status");
@@ -274,6 +329,20 @@ function renderItemTypeBadge(itemType) {
   return `<span class="item-type-badge item-type-${itemType}" title="${hint}">${label}</span>`;
 }
 
+function displayDashValue(value) {
+  const normalized = String(value ?? "").trim();
+  return normalized || "-";
+}
+
+function cleanDashValue(value) {
+  const normalized = String(value ?? "").trim();
+  if (!normalized || normalized === "-" || normalized === "--") {
+    return "";
+  }
+
+  return normalized;
+}
+
 function makeTaskRow(task, index) {
   const itemType = normalizeItemType(task);
 
@@ -281,14 +350,14 @@ function makeTaskRow(task, index) {
     <tr data-index="${index}" data-item-type="${itemType}" data-task-id="${task.id || ""}">
       <td><input type="checkbox" class="approve" checked /></td>
       <td class="item-type-cell">${renderItemTypeBadge(itemType)}</td>
-      <td><input type="text" class="title" value="${task.title || ""}" /></td>
-      <td><input type="text" class="owner" value="${task.owner || ""}" /></td>
-      <td><input type="date" class="dueDate" value="${task.dueDate || ""}" /></td>
-      <td><input type="time" class="dueTime" value="${task.dueTime || ""}" /></td>
-      <td><input type="text" class="location" value="${task.location || ""}" placeholder="Event location" /></td>
-      <td><input type="url" class="meetingLink" value="${task.meetingLink || ""}" placeholder="https://meet.google.com/..." /></td>
-      <td><input type="url" class="googleDriveAttachment" value="${task.googleDriveAttachment || ""}" placeholder="https://drive.google.com/..." /></td>
-      <td><input type="text" class="notes" value="${task.notes || ""}" /></td>
+      <td><input type="text" class="title" value="${displayDashValue(task.title)}" /></td>
+      <td><input type="text" class="owner" value="${displayDashValue(task.owner)}" /></td>
+      <td><input type="text" class="dueDate" value="${displayDashValue(task.dueDate)}" /></td>
+      <td><input type="text" class="dueTime" value="${displayDashValue(task.dueTime)}" /></td>
+      <td><input type="text" class="location" value="${displayDashValue(task.location)}" /></td>
+      <td><input type="text" class="meetingLink" value="${displayDashValue(task.meetingLink)}"/></td>
+      <td><input type="text" class="googleDriveAttachment" value="${displayDashValue(task.googleDriveAttachment)}"/></td>
+      <td><input type="text" class="notes" value="${displayDashValue(task.notes)}" /></td>
     </tr>
   `;
 }
@@ -379,12 +448,35 @@ async function fetchLatestAnalysis() {
   fetchLatestBtn.textContent = "Fetching...";
 
   try {
-    const latest = await fetchJson("/api/analyses/latest");
-    if (!latest?.analysisId) {
-      throw new Error("Latest analysis response is missing analysisId.");
+    let nextAnalysisId = "";
+
+    try {
+      const latest = await fetchJson("/api/analyses/latest");
+      nextAnalysisId = latest?.analysisId || "";
+    } catch (error) {
+      const message = String(error?.message || "");
+      const canFallback = message.includes("No recent meetings found") || message.includes("Request failed: 404");
+      if (!canFallback) {
+        throw error;
+      }
     }
 
-    await loadAnalysisById(latest.analysisId, "Fetching latest meeting...");
+    if (!nextAnalysisId) {
+      setLoadingResult("Analyzing transcript.json...");
+      const [analysis] = await Promise.all([
+        fetchJson("/api/analyses/from-hardcoded-transcript", {
+          method: "POST",
+        }),
+        new Promise((resolve) => setTimeout(resolve, TRANSCRIPT_ANALYSIS_MIN_LOADING_MS)),
+      ]);
+
+      nextAnalysisId = analysis?.analysisId || "";
+      if (!nextAnalysisId) {
+        throw new Error("Transcript analysis response is missing analysisId.");
+      }
+    }
+
+    await loadAnalysisById(nextAnalysisId, "Fetching latest meeting...");
   } catch (error) {
     setResult(error.message, true);
   } finally {
@@ -426,20 +518,31 @@ function collectApprovedTasks() {
 
   return rows
     .filter((row) => row.querySelector(".approve")?.checked)
-    .map((row) => ({
-      id: row.dataset.taskId?.trim() || "",
-      sourceIndex: Number(row.dataset.index || -1),
-      itemType: row.dataset.itemType || "task",
-      title: row.querySelector(".title")?.value?.trim() || "",
-      owner: row.querySelector(".owner")?.value?.trim() || "Unassigned",
-      dueDate: row.querySelector(".dueDate")?.value?.trim() || "",
-      dueTime: row.querySelector(".dueTime")?.value?.trim() || "",
-      location: row.querySelector(".location")?.value?.trim() || "",
-      meetingLink: row.querySelector(".meetingLink")?.value?.trim() || "",
-      googleDriveAttachment: row.querySelector(".googleDriveAttachment")?.value?.trim() || "",
-      notes: row.querySelector(".notes")?.value?.trim() || "",
-      sourceSnippet: "",
-    }))
+    .map((row) => {
+      const title = cleanDashValue(row.querySelector(".title")?.value);
+      const owner = cleanDashValue(row.querySelector(".owner")?.value);
+      const dueDate = cleanDashValue(row.querySelector(".dueDate")?.value);
+      const dueTime = cleanDashValue(row.querySelector(".dueTime")?.value);
+      const location = cleanDashValue(row.querySelector(".location")?.value);
+      const meetingLink = cleanDashValue(row.querySelector(".meetingLink")?.value);
+      const googleDriveAttachment = cleanDashValue(row.querySelector(".googleDriveAttachment")?.value);
+      const notes = cleanDashValue(row.querySelector(".notes")?.value);
+
+      return {
+        id: row.dataset.taskId?.trim() || "",
+        sourceIndex: Number(row.dataset.index || -1),
+        itemType: row.dataset.itemType || "task",
+        title,
+        owner: owner || "Unassigned",
+        dueDate,
+        dueTime,
+        location,
+        meetingLink,
+        googleDriveAttachment,
+        notes,
+        sourceSnippet: "",
+      };
+    })
     .filter((task) => task.title.length > 0);
 }
 
@@ -478,6 +581,43 @@ disconnectBtn.addEventListener("click", async () => {
     setResult(error.message, true);
   }
 });
+
+if (telegramSaveBtn) {
+  telegramSaveBtn.addEventListener("click", async () => {
+    const botToken = telegramTokenInput?.value?.trim() || "";
+    const chatId = telegramChatIdInput?.value?.trim() || "";
+
+    if (!botToken) {
+      setResult("Please paste your Telegram bot token from @BotFather.", true);
+      return;
+    }
+
+    const defaultText = telegramSaveBtn.dataset.defaultText || telegramSaveBtn.textContent || "Save Telegram Config";
+    telegramSaveBtn.dataset.defaultText = defaultText;
+    telegramSaveBtn.disabled = true;
+    telegramSaveBtn.textContent = "Saving...";
+
+    try {
+      await fetchJson("/api/telegram/runtime-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ botToken, chatId }),
+      });
+
+      if (telegramTokenInput) {
+        telegramTokenInput.value = "";
+      }
+
+      await refreshTelegramConfigStatus();
+      setResult("Telegram bot config updated.");
+    } catch (error) {
+      setResult(error.message, true);
+    } finally {
+      telegramSaveBtn.disabled = false;
+      telegramSaveBtn.textContent = defaultText;
+    }
+  });
+}
 
 if (fetchLatestBtn) {
   fetchLatestBtn.addEventListener("click", fetchLatestAnalysis);
@@ -533,8 +673,27 @@ folderUploadForm.addEventListener("submit", async (event) => {
 });
 
 executeBtn.addEventListener("click", async () => {
+  const shouldSyncSheets = Boolean(toSheets?.checked);
+  const shouldSyncCalendar = toCalendar ? Boolean(toCalendar.checked) : true;
+
   if (!currentAnalysisId) {
     setResult("No analysis loaded.", true);
+    return;
+  }
+
+  if (!shouldSyncSheets && !shouldSyncCalendar) {
+    setResult("Select at least one destination: Google Sheets or Google Calendar.", true);
+    return;
+  }
+
+  try {
+    const auth = await fetchJson("/api/auth-status");
+    if (!auth.connected) {
+      setResult("Google account not connected. Click Connect Google before executing actions.", true);
+      return;
+    }
+  } catch (error) {
+    setResult(`Could not verify Google auth status: ${error.message}`, true);
     return;
   }
 
@@ -548,11 +707,11 @@ executeBtn.addEventListener("click", async () => {
     analysisId: currentAnalysisId,
     tasks,
     options: {
-      toSheets: toSheets.checked,
-      toCalendar: toCalendar.checked,
-      spreadsheetId: spreadsheetId.value.trim(),
-      sheetName: sheetName.value.trim() || "Tasks",
-      calendarId: calendarId.value.trim() || "primary",
+      toSheets: shouldSyncSheets,
+      toCalendar: shouldSyncCalendar,
+      spreadsheetId: spreadsheetId?.value?.trim() || "",
+      sheetName: sheetName?.value?.trim() || "Tasks",
+      calendarId: calendarId?.value?.trim() || "primary",
     },
   };
 
@@ -567,8 +726,8 @@ executeBtn.addEventListener("click", async () => {
 
     setSuccessResult(
       summarizeExecutionResult(data, {
-        includeSheets: toSheets.checked,
-        includeCalendar: toCalendar.checked,
+        includeSheets: shouldSyncSheets,
+        includeCalendar: shouldSyncCalendar,
       })
     );
   } catch (error) {
@@ -577,6 +736,7 @@ executeBtn.addEventListener("click", async () => {
 });
 
 refreshAuthStatus();
+refreshTelegramConfigStatus();
 refreshWhatsAppStatus();
 setInterval(refreshWhatsAppStatus, 3000);
 loadAnalysisFromQueryParam();
