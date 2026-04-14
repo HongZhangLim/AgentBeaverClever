@@ -17,7 +17,7 @@ import {
   syncTasksToSheet,
   createCalendarEvents,
 } from "./src/services/googleActionsService.js";
-import { saveAnalysis, getAnalysis } from "./src/store/analysisStore.js";
+import { saveAnalysis, getAnalysis, getLatestAnalysis } from "./src/store/analysisStore.js";
 import { initializeTelegramService } from "./src/services/telegramService.js";
 import {
   initializeWhatsAppService,
@@ -191,6 +191,16 @@ app.get("/api/analysis/:analysisId", (req, res) => {
     analysisId,
     ...analysis,
   });
+});
+
+app.get("/api/analyses/latest", (req, res) => {
+  const latestAnalysis = getLatestAnalysis();
+
+  if (!latestAnalysis) {
+    return res.status(404).json({ error: "No recent meetings found." });
+  }
+
+  res.json(latestAnalysis);
 });
 
 app.get("/api/whatsapp/status", (req, res) => {

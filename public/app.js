@@ -3,6 +3,7 @@ let currentAnalysisId = null;
 const authStatus = document.getElementById("authStatus");
 const connectBtn = document.getElementById("connectBtn");
 const disconnectBtn = document.getElementById("disconnectBtn");
+const fetchLatestBtn = document.getElementById("btn-fetch-latest");
 const whatsappStatus = document.getElementById("whatsappStatus");
 const whatsappQrImage = document.getElementById("whatsapp-qr-image");
 const whatsappHint = document.getElementById("whatsappHint");
@@ -333,6 +334,19 @@ async function submitAnalysis(url, formData, progressMessage) {
   renderAnalysisResult(data);
 }
 
+function setAnalysisIdInUrl(analysisId) {
+  const currentUrl = new URL(window.location.href);
+  currentUrl.searchParams.set("analysisId", analysisId);
+  window.history.pushState({}, "", `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`);
+}
+
+async function loadAnalysisById(analysisId, loadingMessage = "Loading shared analysis...") {
+  setLoadingResult(loadingMessage);
+  const data = await fetchJson(`/api/analysis/${encodeURIComponent(analysisId)}`);
+  renderAnalysisResult(data);
+  setAnalysisIdInUrl(analysisId);
+}
+
 async function loadAnalysisFromQueryParam() {
   const params = new URLSearchParams(window.location.search);
   const analysisId = params.get("analysisId");
@@ -341,11 +355,34 @@ async function loadAnalysisFromQueryParam() {
   }
 
   try {
-    setLoadingResult("Loading shared analysis...");
-    const data = await fetchJson(`/api/analysis/${encodeURIComponent(analysisId)}`);
-    renderAnalysisResult(data);
+    await loadAnalysisById(analysisId, "Loading shared analysis...");
   } catch (error) {
     setResult(`Failed to load shared analysis: ${error.message}`, true);
+  }
+}
+
+async function fetchLatestAnalysis() {
+  if (!fetchLatestBtn) {
+    return;
+  }
+
+  const defaultText = fetchLatestBtn.dataset.defaultText || fetchLatestBtn.textContent || "I finished a meeting";
+  fetchLatestBtn.dataset.defaultText = defaultText;
+  fetchLatestBtn.disabled = true;
+  fetchLatestBtn.textContent = "Fetching...";
+
+  try {
+    const latest = await fetchJson("/api/analyses/latest");
+    if (!latest?.analysisId) {
+      throw new Error("Latest analysis response is missing analysisId.");
+    }
+
+    await loadAnalysisById(latest.analysisId, "Fetching latest meeting...");
+  } catch (error) {
+    setResult(error.message, true);
+  } finally {
+    fetchLatestBtn.disabled = false;
+    fetchLatestBtn.textContent = defaultText;
   }
 }
 
@@ -434,6 +471,10 @@ disconnectBtn.addEventListener("click", async () => {
     setResult(error.message, true);
   }
 });
+
+if (fetchLatestBtn) {
+  fetchLatestBtn.addEventListener("click", fetchLatestAnalysis);
+}
 
 uploadForm.addEventListener("submit", async (event) => {
   event.preventDefault();

@@ -39,6 +39,20 @@ body {
   margin: 0 0 8px;
 }
 
+.hero-actions {
+  margin-top: 14px;
+}
+
+#btn-fetch-latest {
+  background: #f59e0b;
+  color: #111827;
+  font-weight: 700;
+}
+
+#btn-fetch-latest:hover {
+  background: #d97706;
+}
+
 .panel {
   background: var(--panel);
   border: 1px solid var(--line);
