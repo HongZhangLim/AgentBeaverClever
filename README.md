@@ -1,6 +1,30 @@
+# Agent Beaver Clever
+
+A deterministic workspace automation tool that extracts tasks from unstructured chats and transcripts, executing them safely via pure JavaScript logic. 
+
+Informal communication often buries deadlines and critical tasks. Agent Beaver Clever eliminates manual administration by parsing unstructured data into structured schemas, instantly automating documentation, permissions, and event scheduling.
+
+## Core Architecture & Philosophy
+
+Built for practicality and reliability, this tool rejects unpredictable orchestration in favor of strict system boundaries:
+
+* **Strict AI Boundaries**: LLMs are leveraged exclusively to process messy data into clean JSON. Once generated, the AI's job is done.
+* **Zod JSON Guardrails**: Validates all LLM outputs against predefined schemas to force strict, error-free data generation.
+* **Deterministic Execution**: Instead of using native AI function calls, actions are executed via a pure JavaScript orchestrator. This guarantees 100% reliable API execution for specific endpoints.
+
+## Key Features
+
+* **Multi-Platform Ingestion**: Auto-detects Google Meet transcripts from Drive and ingests unstructured group chat histories from WhatsApp and Telegram.
+* **Multimodal Processing**: Parses mixed input types including texts, PDFs, and audio messages.
+* **Action Extraction**: Categorizes tasks, identifies Persons in Charge (PICs), assigns due dates, and extracts decisions and blockers into predefined JSON schemas.
+* **Human Approval Interface**: Extracted data is presented in a clean spreadsheet interface for rapid review before initiating actions.
+* **Workspace Integration**: Auto-creates shared Google Docs, Slides, and Sheets. Pushes approved events directly to Google Calendar and attaches generated files for immediate team access.
+* **Automated Reminders**: Triggers multi-stage push notifications for critical deadlines
+
+
 # AgentBeaverClever
 
-Manual upload app that converts meeting transcript or chat exports into structured actions using Gemini, then executes approved actions in Google Sheets and Google Calendar.
+Manual upload app that converts meeting transcript or chat exports into structured actions using Gemma, then executes approved actions in Google Calendar.
 
 ## Features
 
@@ -24,12 +48,18 @@ Manual upload app that converts meeting transcript or chat exports into structur
 
 1. Create a Google Cloud project.
 2. Enable APIs:
-   - Google Sheets API
    - Google Calendar API
+   - Google Drive API
+   - Google Docs API
+   - Google Slides API
+   - Google Sheets API
 3. Configure OAuth consent screen (External, add test users).
 4. Create OAuth Client ID (Web application).
-5. Add redirect URI:
+5. Add Authorised JavaScript Origins:
+   - `http://localhost:3000`
+6. Add Authorised redirect URIs:
    - `http://localhost:3000/auth/google/callback`
+7. Add email as test users in `Audience`
 
 ## Input Formats
 
@@ -77,14 +107,13 @@ node --input-type=module -e "import fs from 'fs'; import path from 'path'; impor
 1. Connect Google account.
 2. Upload transcript/chat file (TXT, JSON, ZIP) or upload a chat export folder.
 3. Review extracted tasks.
-4. Select tasks and execute to Sheets and/or Calendar.
+4. Select tasks and execute to Google Calendar.
 5. Open links from execution results.
 
 ### Team Shared Folder Setup
 
 1. Accept the invite to the shared Google Drive folder.
-2. Go to your personal Tactiq settings.
-3. Connect Google Drive and explicitly set the save location to this shared folder.
+2. Connect Google Drive and explicitly set the save location to this shared folder.
 
 ## Notes
 
