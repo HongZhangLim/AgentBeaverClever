@@ -9,36 +9,86 @@
   <body>
     <main class="container">
       <header class="hero">
-        <h1>Meeting Intelligence Agent</h1>
-        <p>Upload transcript/chat, extract actions with Gemini, and sync approved tasks to Google Sheets and Calendar.</p>
+        <div class="hero-title-row">
+          <img
+            src="/logo.png"
+            alt="Agent Beaver Clever logo"
+            class="app-logo"
+            onerror="this.style.display='none'"
+          />
+          <h1>Agent Beaver Clever 🪵🦎</h1>
+        </div>
+        <p class="hero-description">Upload transcript/chat, extract actions with Google Gemma, and sync approved tasks to Google Calendar with actions function ( Docs | Slides | Sheets ).</p>
+        <p id="sourceSubtitle" class="hero-source">Source: Not loaded yet</p>
+        <div class="hero-actions">
+          <button id="btn-fetch-latest" type="button">I finished a meeting</button>
+          <img
+            src="/loaf.png"
+            alt="Loaf"
+            class="loaf-icon"
+            onerror="this.style.display='none'"
+          />
+        </div>
       </header>
 
-      <section class="panel">
-        <h2>1. Connect Google</h2>
-        <div class="row">
-          <button id="connectBtn">Connect Google</button>
-          <button id="disconnectBtn" class="secondary">Disconnect</button>
-          <span id="authStatus" class="badge">Checking...</span>
-        </div>
-      </section>
+      <div class="top-panels">
+        <section class="panel">
+          <h2>1. Connect Google</h2>
+          <div class="row">
+            <button id="connectBtn">Connect Google</button>
+            <button id="disconnectBtn" class="secondary">Disconnect</button>
+            <span id="authStatus" class="badge">Checking...</span>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>WhatsApp Connection</h2>
+          <div class="whatsapp-connection">
+            <span id="whatsappStatus" class="badge">Checking...</span>
+            <img
+              id="whatsapp-qr-image"
+              class="whatsapp-qr hidden"
+              alt="WhatsApp QR code"
+            />
+            <p id="whatsappHint" class="muted">Waiting for QR code...</p>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Telegram Bot Config</h2>
+          <div class="row">
+            <span id="telegramConfigStatus" class="badge">Checking...</span>
+          </div>
+          <div class="config-stack">
+            <input
+              id="telegramTokenInput"
+              type="password"
+              placeholder="Telegram Bot Token (from @BotFather)"
+              autocomplete="off"
+            />
+            <input
+              id="telegramChatIdInput"
+              type="text"
+              placeholder="Preferred Chat ID (optional)"
+              autocomplete="off"
+            />
+            <button id="telegramSaveBtn" type="button">Save Telegram Config</button>
+            <p class="muted">Used for Telegram /summarize flow at runtime.</p>
+          </div>
+        </section>
+      </div>
 
       <section class="panel">
         <h2>2. Upload and Analyze</h2>
-        <form id="uploadForm">
-          <input id="fileInput" name="file" type="file" accept=".txt,.md,.json" required />
+        <form id="uploadForm" class="upload-row">
+          <input id="fileInput" name="file" type="file" accept=".txt,.md,.json,.zip" required />
           <button type="submit">Analyze File</button>
         </form>
-        <p id="uploadMeta" class="muted"></p>
-        <div id="insights" class="insights hidden">
-          <div>
-            <h3>Decisions</h3>
-            <ul id="decisionsList"></ul>
-          </div>
-          <div>
-            <h3>Blockers</h3>
-            <ul id="blockersList"></ul>
-          </div>
-        </div>
+        <form id="folderUploadForm" class="upload-row">
+          <input id="folderInput" name="folder" type="file" webkitdirectory directory multiple />
+          <button type="submit">Analyze Folder</button>
+        </form>
+        <p id="uploadMeta" class="muted hidden"></p>
       </section>
 
       <section class="panel">
@@ -46,11 +96,8 @@
         <div id="taskTableWrap" class="hidden"></div>
 
         <div class="options hidden" id="actionOptions">
-          <label><input type="checkbox" id="toSheets" checked /> Sync to Sheets</label>
+          
           <label><input type="checkbox" id="toCalendar" checked /> Create Calendar events</label>
-          <input type="text" id="spreadsheetId" placeholder="Spreadsheet ID (optional)" />
-          <input type="text" id="sheetName" placeholder="Sheet name (default Tasks)" value="Tasks" />
-          <input type="text" id="calendarId" placeholder="Calendar ID (default primary)" value="primary" />
           <button id="executeBtn">Execute Approved Actions</button>
         </div>
 
