@@ -1,0 +1,175 @@
+{
+  "name": "ProductivityAgent Build Room",
+  "type": "private_group",
+  "id": 6088123401,
+  "messages": [
+    {
+      "id": 1,
+      "type": "message",
+      "date": "2026-04-13T08:00:00",
+      "date_unixtime": "1776067200",
+      "from": "Maya",
+      "from_id": "user1001",
+      "text": "Today we finalize student hackathon planning with clear events and tasks.",
+      "text_entities": [
+        { "type": "plain", "text": "Today we finalize student hackathon planning with clear events and tasks." }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "message",
+      "date": "2026-04-13T08:05:00",
+      "date_unixtime": "1776067500",
+      "from": "Maya",
+      "from_id": "user1001",
+      "text": "Event: Scheduled Google meeting at 15/4/2026 8pm for final hackathon strategy sync with Lim Hong Zhang, Lim Szeman, and Khor Kai Yee.",
+      "text_entities": [
+        { "type": "plain", "text": "Event: Scheduled Google meeting at 15/4/2026 8pm for final hackathon strategy sync with Lim Hong Zhang, Lim Szeman, and Khor Kai Yee." }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "message",
+      "date": "2026-04-13T08:07:00",
+      "date_unixtime": "1776067620",
+      "from": "Maya",
+      "from_id": "user1001",
+      "text": "Task: Prepare presentation slide with deadline at 14/4/2026 and collaborate with Lim Hong Zhang, Lim Szeman, and Khor Kai Yee.",
+      "text_entities": [
+        { "type": "plain", "text": "Task: Prepare presentation slide with deadline at 14/4/2026 and collaborate with Lim Hong Zhang, Lim Szeman, and Khor Kai Yee." }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "message",
+      "date": "2026-04-13T08:10:00",
+      "date_unixtime": "1776067800",
+      "from": "Maya",
+      "from_id": "user1001",
+      "text": "Event: Final hackathon pitching at Faculty of Computer Science and Information Technology on 16/4/2026 10:00am. Google Map location: https://maps.google.com/?q=Faculty+of+Computer+Science+and+Information+Technology",
+      "text_entities": [
+        { "type": "plain", "text": "Event: Final hackathon pitching at Faculty of Computer Science and Information Technology on 16/4/2026 10:00am. Google Map location: https://maps.google.com/?q=Faculty+of+Computer+Science+and+Information+Technology" }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "message",
+      "date": "2026-04-13T08:14:00",
+      "date_unixtime": "1776068040",
+      "from": "Lim Hong Zhang",
+      "from_id": "user1002",
+      "text": "Task: Submit distributed systems assignment by 17/4/2026 11:59pm.",
+      "text_entities": [
+        { "type": "plain", "text": "Task: Submit distributed systems assignment by 17/4/2026 11:59pm." }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "message",
+      "date": "2026-04-13T08:18:00",
+      "date_unixtime": "1776068280",
+      "from": "Lim Szeman",
+      "from_id": "user1003",
+      "text": "Event: Team rehearsal at Innovation Hub on 15/4/2026 6:30pm.",
+      "text_entities": [
+        { "type": "plain", "text": "Event: Team rehearsal at Innovation Hub on 15/4/2026 6:30pm." }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "message",
+      "date": "2026-04-13T08:21:00",
+      "date_unixtime": "1776068460",
+      "from": "Khor Kai Yee",
+      "from_id": "user1004",
+      "text": "Task: Prepare Q and A list for judges before 15/4/2026 5:00pm.",
+      "text_entities": [
+        { "type": "plain", "text": "Task: Prepare Q and A list for judges before 15/4/2026 5:00pm." }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "message",
+      "date": "2026-04-13T08:24:00",
+      "date_unixtime": "1776068640",
+      "from": "Maya",
+      "from_id": "user1001",
+      "text": "Event: Database consultation with Dr Farah on 14/4/2026 3:00pm at FSKTM Meeting Room 2.",
+      "text_entities": [
+        { "type": "plain", "text": "Event: Database consultation with Dr Farah on 14/4/2026 3:00pm at FSKTM Meeting Room 2." }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "message",
+      "date": "2026-04-13T08:28:00",
+      "date_unixtime": "1776068880",
+      "from": "Lim Hong Zhang",
+      "from_id": "user1002",
+      "text": "Task: Book poster printing slot by 15/4/2026 12:00pm.",
+      "text_entities": [
+        { "type": "plain", "text": "Task: Book poster printing slot by 15/4/2026 12:00pm." }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "message",
+      "date": "2026-04-13T08:31:00",
+      "date_unixtime": "1776069060",
+      "from": "Lim Szeman",
+      "from_id": "user1003",
+      "text": "Event: Library research session for literature review on 14/4/2026 11:00am at Main Library Level 3.",
+      "text_entities": [
+        { "type": "plain", "text": "Event: Library research session for literature review on 14/4/2026 11:00am at Main Library Level 3." }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "message",
+      "date": "2026-04-13T08:36:00",
+      "date_unixtime": "1776069360",
+      "from": "Khor Kai Yee",
+      "from_id": "user1004",
+      "text": "Task: Upload final demo video draft by 15/4/2026 9:30pm.",
+      "text_entities": [
+        { "type": "plain", "text": "Task: Upload final demo video draft by 15/4/2026 9:30pm." }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "message",
+      "date": "2026-04-13T08:40:00",
+      "date_unixtime": "1776069600",
+      "from": "Maya",
+      "from_id": "user1001",
+      "text": "Event: Sponsor Q and A briefing on 15/4/2026 4:00pm at Auditorium B.",
+      "text_entities": [
+        { "type": "plain", "text": "Event: Sponsor Q and A briefing on 15/4/2026 4:00pm at Auditorium B." }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "message",
+      "date": "2026-04-13T08:43:00",
+      "date_unixtime": "1776069780",
+      "from": "Maya",
+      "from_id": "user1001",
+      "text": "Task: Compile final budget breakdown and receipts by 16/4/2026 1:00pm.",
+      "text_entities": [
+        { "type": "plain", "text": "Task: Compile final budget breakdown and receipts by 16/4/2026 1:00pm." }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "message",
+      "date": "2026-04-13T08:50:00",
+      "date_unixtime": "1776070200",
+      "from": "Maya",
+      "from_id": "user1001",
+      "text": "Event: Quick standup for blocker resolution on 14/4/2026 9:00am in Lab 4.",
+      "text_entities": [
+        { "type": "plain", "text": "Event: Quick standup for blocker resolution on 14/4/2026 9:00am in Lab 4." }
+      ]
+    }
+  ]
+}
