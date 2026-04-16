@@ -181,7 +181,7 @@ export function initializeTelegramService({
 
       if (hasAudioInput) {
         const prepared = loadPreparedAudioFallback();
-        await bot.sendMessage(chatRef.id, `Analyzing ${prepared.messageCount} message(s)...`);
+        await bot.sendMessage(chatRef.id, `Analyzing message(s)...`);
         await waitForAudioFallbackDelay();
         canonicalText = prepared.canonicalText;
         messageCount = prepared.messageCount;
@@ -189,7 +189,7 @@ export function initializeTelegramService({
         parsedSourceFile = prepared.parsedSourceFile;
         inputType = "telegram-audio-fallback";
       } else {
-        await bot.sendMessage(chatRef.id, `Analyzing ${chatMessages.length} message(s)...`);
+        await bot.sendMessage(chatRef.id, `Analyzing message(s)...`);
         canonicalText = buildCanonicalText(chatMessages);
         messageCount = chatMessages.length;
         fileName = `telegram-chat-${chatId}.txt`;

@@ -300,16 +300,19 @@ export function initializeWhatsAppService({
     "--disable-gpu",
   ];
 
+  const resolvedExecutablePath = resolvePuppeteerExecutablePath();
+  const puppeteerConfig = {
+    headless: true,
+    args: puppeteerArgs,
+  };
+
+  if (resolvedExecutablePath) {
+    puppeteerConfig.executablePath = resolvedExecutablePath;
+  }
+
   const client = new Client({
     authStrategy: new LocalAuth({ clientId: process.env.WHATSAPP_CLIENT_ID }),
-    puppeteer: {
-      headless: true,
-      executablePath: path.join(
-        process.cwd(),
-        ".cache/puppeteer/chrome/linux-146.0.7680.153/chrome-linux64/chrome"
-      ),
-      args: puppeteerArgs,
-    },
+    puppeteer: puppeteerConfig,
   });
 
   client.on("qr", async (qr) => {
@@ -389,7 +392,7 @@ export function initializeWhatsAppService({
 
       if (hasAudioInput) {
         const prepared = loadPreparedAudioFallback();
-        await msg.reply(`Analyzing ${prepared.messageCount} cached message(s)...`);
+        await msg.reply(`Analyzing cached message(s)...`);
         await waitForAudioFallbackDelay();
         canonicalText = prepared.canonicalText;
         messageCount = prepared.messageCount;
@@ -397,7 +400,7 @@ export function initializeWhatsAppService({
         parsedSourceFile = prepared.parsedSourceFile;
         inputType = "whatsapp-audio-fallback";
       } else {
-        await msg.reply(`Analyzing ${cachedMessages.length} cached message(s)...`);
+        await msg.reply(`Analyzing cached message(s)...`);
         canonicalText = cachedMessages
           .map((entry) => {
             return `[${formatCanonicalTimestamp(entry.timestamp)}] ${entry.speaker}: ${entry.message}`;
